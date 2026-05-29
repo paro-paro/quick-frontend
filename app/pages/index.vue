@@ -1,5 +1,5 @@
 <script setup lang="ts">
-navigateTo("/account");
+navigateTo("/woocommerce");
 </script>
 
 <template>

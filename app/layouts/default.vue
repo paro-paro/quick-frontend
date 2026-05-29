@@ -5,19 +5,9 @@ const route = useRoute();
 
 const items: NavigationMenuItem[] = [
   {
-    label: "Account",
-    icon: "i-lucide-user",
-    to: "/account",
-  },
-  {
-    label: "Products",
-    icon: "i-lucide-package",
-    to: "/products",
-  },
-  {
-    label: "Orders",
-    icon: "i-lucide-shopping-cart",
-    to: "/orders",
+    label: "WooCommerce",
+    icon: "i-lucide-store",
+    to: "/woocommerce",
   },
 ];
 </script>
