@@ -1,0 +1,389 @@
+<script setup lang="ts">
+import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
+
+import type {
+    ApiResponse,
+    WCImportProductAction,
+    WCSyncProductsApplyRequest,
+    WCSyncProductsPreview,
+    WooCommerceSyncResult,
+} from "~/types/woocommerce";
+import { WC_API_BASE } from "~/types/woocommerce";
+
+const open = defineModel<boolean>("open", { required: true });
+
+const emit = defineEmits<{
+    (e: "applied", result: WooCommerceSyncResult): void;
+}>();
+
+const queryClient = useQueryClient();
+
+const EMPTY_STATE_HINT =
+    'Use the "Refresh products" button to pull the latest data for products you\'ve already imported.';
+
+// wc_product_id -> whether the user wants to import this one
+const selectedForImport = ref<Set<number>>(new Set());
+// wc_product_id -> pod_product_id chosen for the "map" action (null = "create")
+const selectedMappings = ref<Record<number, number | null>>({});
+
+const {
+    data: syncPreview,
+    isLoading: isPreviewLoading,
+    isError: isPreviewError,
+    error: previewError,
+} = useQuery({
+    queryKey: ["woocommerce-sync-products-preview"],
+    queryFn: async () => {
+        const res = await $fetch<ApiResponse<WCSyncProductsPreview>>(
+            `${WC_API_BASE}/woocommerce/sync/products/preview`,
+        );
+        return res.data;
+    },
+    enabled: computed(() => open.value),
+    retry: false,
+});
+
+// Import flow only handles NEW products — mapped ones are the refresh flow's job.
+const importableWcProducts = computed(() => {
+    const mapped = new Set(
+        (syncPreview.value?.mappings ?? []).map((m) => m.wc_product_id),
+    );
+    return (syncPreview.value?.wc_products ?? []).filter(
+        (p) => !mapped.has(p.wc_product_id),
+    );
+});
+
+// POD ids already claimed by existing DB mappings — can't be picked as map targets.
+const alreadyMappedPodIds = computed<Set<number>>(
+    () =>
+        new Set(
+            (syncPreview.value?.mappings ?? []).map((m) => m.pod_product_id),
+        ),
+);
+
+// Pre-check every importable row when preview lands. User opts out per-row.
+watch(syncPreview, (data) => {
+    if (!data) return;
+    const mapped = new Set(data.mappings.map((m) => m.wc_product_id));
+    selectedForImport.value = new Set(
+        data.wc_products
+            .filter((p) => !mapped.has(p.wc_product_id))
+            .map((p) => p.wc_product_id),
+    );
+    selectedMappings.value = {};
+});
+
+const allImportableSelected = computed(
+    () =>
+        !!importableWcProducts.value.length &&
+        importableWcProducts.value.every((p) =>
+            selectedForImport.value.has(p.wc_product_id),
+        ),
+);
+const someImportableSelected = computed(() => {
+    const selected = importableWcProducts.value.filter((p) =>
+        selectedForImport.value.has(p.wc_product_id),
+    ).length;
+    return selected > 0 && selected < importableWcProducts.value.length;
+});
+
+function toggleAll(checked: boolean) {
+    const next = new Set(selectedForImport.value);
+    for (const p of importableWcProducts.value) {
+        if (checked) next.add(p.wc_product_id);
+        else next.delete(p.wc_product_id);
+    }
+    selectedForImport.value = next;
+}
+
+function toggleOne(wcId: number, checked: boolean) {
+    const next = new Set(selectedForImport.value);
+    if (checked) next.add(wcId);
+    else {
+        next.delete(wcId);
+        // Deselecting a row frees its POD pick.
+        selectedMappings.value = { ...selectedMappings.value, [wcId]: null };
+    }
+    selectedForImport.value = next;
+}
+
+function clearMapping(wcId: number) {
+    selectedMappings.value = { ...selectedMappings.value, [wcId]: null };
+}
+
+// pod_product_id -> {name, format} lookup for rendering the selected value in
+// the dropdown trigger (mirrors the list's #item-label styling).
+const podInfoById = computed<Map<number, { name: string; format: string }>>(() => {
+    const m = new Map<number, { name: string; format: string }>();
+    for (const p of syncPreview.value?.pod_products ?? []) {
+        m.set(p.pod_product_id, { name: p.name, format: p.format });
+    }
+    return m;
+});
+
+// POD ids currently picked by *any* row in this modal session — used to
+// prevent two rows from mapping to the same POD.
+const claimedPodIdsBySession = computed<Set<number>>(() => {
+    const set = new Set<number>();
+    for (const [, podId] of Object.entries(selectedMappings.value)) {
+        if (podId != null) set.add(podId);
+    }
+    return set;
+});
+
+function podOptionsForRow(wcId: number) {
+    const ownPick = selectedMappings.value[wcId];
+    return (syncPreview.value?.pod_products ?? [])
+        .filter((p) => {
+            // Exclude PODs already mapped in the DB.
+            if (alreadyMappedPodIds.value.has(p.pod_product_id)) return false;
+            // Exclude PODs picked by another row this session (keep own pick).
+            if (
+                p.pod_product_id !== ownPick &&
+                claimedPodIdsBySession.value.has(p.pod_product_id)
+            ) {
+                return false;
+            }
+            return true;
+        })
+        .map((p) => ({
+            // Combined text stays in `label` so it shows in the trigger and
+            // powers search. The dropdown list uses the #item-label slot below
+            // to render name normally + format muted inline (no parentheses).
+            label: p.format ? `${p.name} ${p.format}` : p.name,
+            name: p.name,
+            format: p.format,
+            value: p.pod_product_id,
+        }));
+}
+
+const {
+    mutate: applySyncProducts,
+    isPending: isApplying,
+    isError: isApplyError,
+    error: applyError,
+} = useMutation({
+    mutationFn: async (payload: WCSyncProductsApplyRequest) => {
+        const res = await $fetch<ApiResponse<WooCommerceSyncResult>>(
+            `${WC_API_BASE}/woocommerce/sync/products/apply`,
+            {
+                method: "POST",
+                body: payload,
+                headers: { "Content-Type": "application/json" },
+            },
+        );
+        return res.data;
+    },
+    onSuccess: (data) => {
+        queryClient.invalidateQueries({
+            queryKey: ["woocommerce-sync-products-preview"],
+        });
+        open.value = false;
+        emit("applied", data);
+    },
+});
+
+const selectedCount = computed(() => selectedForImport.value.size);
+
+function onConfirm() {
+    const actions: WCImportProductAction[] = [];
+    for (const wc of importableWcProducts.value) {
+        const wcId = wc.wc_product_id;
+        if (!selectedForImport.value.has(wcId)) continue;
+        const podId = selectedMappings.value[wcId];
+        if (podId != null) {
+            actions.push({ wc_product_id: wcId, type: "map", pod_product_id: podId });
+        } else {
+            actions.push({ wc_product_id: wcId, type: "create" });
+        }
+    }
+    applySyncProducts({ actions });
+}
+</script>
+
+<template>
+    <UModal
+        v-model:open="open"
+        title="Import products"
+        description="Bring new WooCommerce products into POD."
+        :ui="{ content: 'max-w-2xl' }"
+    >
+        <template #body>
+            <div v-if="isPreviewLoading" class="flex items-center gap-2 text-muted">
+                <UIcon name="i-lucide-loader" class="animate-spin" />
+                Loading preview...
+            </div>
+
+            <UAlert
+                v-else-if="isPreviewError"
+                color="error"
+                :title="previewError?.message || 'Failed to load preview.'"
+            />
+
+            <div v-else-if="syncPreview" class="flex flex-col gap-4">
+                <!-- Empty state: no importable products, only a Close button. -->
+                <template v-if="!importableWcProducts.length">
+                    <p class="text-sm text-muted">
+                        No new products to import.
+                    </p>
+                    <UAlert
+                        color="info"
+                        variant="soft"
+                        icon="i-lucide-info"
+                        :description="EMPTY_STATE_HINT"
+                    />
+                    <div class="flex justify-end">
+                        <UButton
+                            type="button"
+                            color="neutral"
+                            variant="ghost"
+                            label="Close"
+                            @click="open = false"
+                        />
+                    </div>
+                </template>
+
+                <template v-else>
+                    <div
+                        v-if="syncPreview.pod_products.length"
+                        class="flex items-center gap-2 rounded-md border border-info/50 px-4 py-3 text-sm"
+                    >
+                        <UIcon name="i-lucide-info" class="text-info" />
+                        <span>
+                            For each WooCommerce product, choose to create a new POD product (leave the dropdown blank) or map it to an existing one (pick from the dropdown).
+                        </span>
+                    </div>
+
+                <div
+                    class="rounded-md border border-default"
+                >
+                    <div
+                        class="flex items-center gap-4 px-3 py-2 border-b border-default bg-elevated/50"
+                    >
+                        <UCheckbox
+                            :model-value="allImportableSelected"
+                            :indeterminate="someImportableSelected"
+                            @update:model-value="toggleAll($event as boolean)"
+                        />
+                        <div class="flex-1 text-xs font-medium uppercase text-muted">
+                            WooCommerce product
+                        </div>
+                        <div
+                            v-if="syncPreview.pod_products.length"
+                            class="w-64 text-xs font-medium uppercase text-muted"
+                        >
+                            POD product
+                        </div>
+                    </div>
+
+                    <ul class="divide-y divide-default">
+                        <li
+                            v-for="wc in importableWcProducts"
+                            :key="wc.wc_product_id"
+                            class="flex items-center gap-4 p-3"
+                        >
+                            <UCheckbox
+                                :model-value="selectedForImport.has(wc.wc_product_id)"
+                                @update:model-value="toggleOne(wc.wc_product_id, $event as boolean)"
+                            />
+
+                            <div class="min-w-0 flex-1">
+                                <div class="truncate text-sm font-medium">
+                                    {{ wc.name }}
+                                </div>
+                                <div class="text-xs text-muted">
+                                    WC ID: {{ wc.wc_product_id }}
+                                </div>
+                            </div>
+
+                            <div
+                                v-if="syncPreview.pod_products.length"
+                                class="flex w-64 items-center gap-1"
+                            >
+                                <USelectMenu
+                                    v-model="selectedMappings[wc.wc_product_id]"
+                                    :items="podOptionsForRow(wc.wc_product_id)"
+                                    value-key="value"
+                                    :disabled="!selectedForImport.has(wc.wc_product_id)"
+                                    placeholder="Create new (or map…)"
+                                    class="flex-1"
+                                >
+                                    <template #default="{ modelValue }">
+                                        <template v-if="modelValue == null">
+                                            <span class="text-dimmed">Create new (or map…)</span>
+                                        </template>
+                                        <template v-else>
+                                            <span>
+                                                {{
+                                                    podInfoById.get(modelValue as number)
+                                                        ?.name
+                                                }}
+                                            </span>
+                                            <span
+                                                v-if="
+                                                    podInfoById.get(modelValue as number)
+                                                        ?.format
+                                                "
+                                                class="ml-2 text-xs text-muted"
+                                            >
+                                                {{
+                                                    podInfoById.get(modelValue as number)
+                                                        ?.format
+                                                }}
+                                            </span>
+                                        </template>
+                                    </template>
+                                    <template #item-label="{ item }">
+                                        <span>{{ (item as { name: string }).name }}</span>
+                                        <span
+                                            v-if="(item as { format: string }).format"
+                                            class="ml-2 text-xs text-muted"
+                                        >
+                                            {{ (item as { format: string }).format }}
+                                        </span>
+                                    </template>
+                                </USelectMenu>
+                                <UButton
+                                    v-if="selectedMappings[wc.wc_product_id] != null"
+                                    color="neutral"
+                                    variant="ghost"
+                                    size="xs"
+                                    icon="i-lucide-x"
+                                    aria-label="Clear mapping"
+                                    :disabled="!selectedForImport.has(wc.wc_product_id)"
+                                    @click="clearMapping(wc.wc_product_id)"
+                                />
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+
+                    <UAlert
+                        v-if="isApplyError"
+                        color="error"
+                        :title="applyError?.message || 'Failed to import.'"
+                    />
+
+                    <div class="flex justify-end gap-2">
+                        <UButton
+                            type="button"
+                            color="neutral"
+                            variant="ghost"
+                            label="Cancel"
+                            :disabled="isApplying"
+                            @click="open = false"
+                        />
+                        <UButton
+                            type="button"
+                            color="primary"
+                            :label="`Import ${selectedCount} product${selectedCount === 1 ? '' : 's'}`"
+                            :loading="isApplying"
+                            :disabled="!selectedCount"
+                            @click="onConfirm"
+                        />
+                    </div>
+                </template>
+            </div>
+        </template>
+    </UModal>
+</template>
