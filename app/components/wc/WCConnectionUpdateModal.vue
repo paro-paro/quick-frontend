@@ -117,6 +117,7 @@ function onSubmit() {
                     <UInput
                         v-model="form.webhook_secret"
                         type="password"
+                        placeholder="..."
                         class="w-full"
                     />
                 </UFormField>

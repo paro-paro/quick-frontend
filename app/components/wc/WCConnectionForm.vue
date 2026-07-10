@@ -41,7 +41,15 @@ const {
 });
 
 function onSubmit() {
-    createConnection({ ...form });
+    // webhook_secret is optional — omit if left blank so the backend uses its None default.
+    const payload: CreatePayload = {
+        store_url: form.store_url,
+        consumer_key: form.consumer_key,
+        consumer_secret: form.consumer_secret,
+    };
+    if (form.webhook_secret) payload.webhook_secret = form.webhook_secret;
+
+    createConnection(payload);
 }
 </script>
 
@@ -89,12 +97,12 @@ function onSubmit() {
                 />
             </UFormField>
 
-            <UFormField label="Webhook Secret" required>
+            <UFormField label="Webhook Secret">
                 <UInput
                     v-model="form.webhook_secret"
                     type="password"
+                    placeholder="..."
                     class="w-full"
-                    required
                 />
             </UFormField>
 

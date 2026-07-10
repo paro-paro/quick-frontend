@@ -1,18 +1,17 @@
 <script setup lang="ts">
-import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
+import { useMutation, useQuery } from "@tanstack/vue-query";
 
 import type {
     ApiResponse,
     WooCommerceConnection,
-    WooCommerceSyncResult,
+    WooCommerceSyncOrdersResult,
+    WooCommerceSyncResultAny,
 } from "~/types/woocommerce";
 import { WC_API_BASE, WC_CONNECTION_URL } from "~/types/woocommerce";
 
 definePageMeta({
     title: "WooCommerce",
 });
-
-const queryClient = useQueryClient();
 
 // --- Connection query (source of truth for the whole page's mode) ---
 
@@ -30,48 +29,31 @@ const { data: connexion, isLoading } = useQuery({
 const isUpdateOpen = ref(false);
 const isDeleteConfirmOpen = ref(false);
 const isImportOpen = ref(false);
+const isUpdateProductsConfirmOpen = ref(false);
 
 // --- Sync result dialog (shared by import / refresh / order sync) ---
 
-const syncResult = ref<WooCommerceSyncResult | null>(null);
-const syncResultLabel = ref<"products" | "orders" | null>(null);
+const syncResult = ref<WooCommerceSyncResultAny | null>(null);
+const syncResultTitle = ref<string>("");
 const isSyncResultOpen = ref(false);
 
-function openSyncResult(label: "products" | "orders", result: WooCommerceSyncResult) {
-    syncResultLabel.value = label;
+function openSyncResult(title: string, result: WooCommerceSyncResultAny) {
+    syncResultTitle.value = title;
     syncResult.value = result;
     isSyncResultOpen.value = true;
 }
-
-// --- Refresh mapped products (one-click; hits the old auto-sync endpoint) ---
-
-const { mutate: refreshMappedProducts, isPending: isRefreshingProducts } = useMutation({
-    mutationFn: async () => {
-        const res = await $fetch<ApiResponse<WooCommerceSyncResult>>(
-            `${WC_API_BASE}/woocommerce/sync/products`,
-            { method: "POST" },
-        );
-        return res.data;
-    },
-    onSuccess: (data) => {
-        queryClient.invalidateQueries({
-            queryKey: ["woocommerce-sync-products-preview"],
-        });
-        openSyncResult("products", data);
-    },
-});
 
 // --- Sync orders (one-click) ---
 
 const { mutate: syncOrders, isPending: isSyncingOrders } = useMutation({
     mutationFn: async () => {
-        const res = await $fetch<ApiResponse<WooCommerceSyncResult>>(
-            `${WC_API_BASE}/woocommerce/sync/orders`,
+        const res = await $fetch<ApiResponse<WooCommerceSyncOrdersResult>>(
+            `${WC_API_BASE}/woocommerce/orders/sync`,
             { method: "POST" },
         );
         return res.data;
     },
-    onSuccess: (data) => openSyncResult("orders", data),
+    onSuccess: (data) => openSyncResult("Sync orders result", data),
 });
 </script>
 
@@ -115,10 +97,9 @@ const { mutate: syncOrders, isPending: isSyncingOrders } = useMutation({
                         <UButton
                             color="primary"
                             variant="soft"
-                            label="Refresh products"
+                            label="Update imported products"
                             icon="i-lucide-refresh-cw"
-                            :loading="isRefreshingProducts"
-                            @click="refreshMappedProducts()"
+                            @click="isUpdateProductsConfirmOpen = true"
                         />
                     </div>
                 </div>
@@ -149,12 +130,17 @@ const { mutate: syncOrders, isPending: isSyncingOrders } = useMutation({
 
         <WCImportProductsModal
             v-model:open="isImportOpen"
-            @applied="(result) => openSyncResult('products', result)"
+            @applied="(result) => openSyncResult('Import products result', result)"
+        />
+
+        <WCUpdateProductsConfirm
+            v-model:open="isUpdateProductsConfirmOpen"
+            @updated="(result) => openSyncResult('Update imported products result', result)"
         />
 
         <WCSyncResultDialog
             v-model:open="isSyncResultOpen"
-            :label="syncResultLabel"
+            :title="syncResultTitle"
             :result="syncResult"
         />
     </div>

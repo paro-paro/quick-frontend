@@ -21,7 +21,7 @@ export interface CreatePayload {
     store_url: string;
     consumer_key: string;
     consumer_secret: string;
-    webhook_secret: string;
+    webhook_secret?: string;
 }
 
 export interface UpdatePayload {
@@ -32,15 +32,45 @@ export interface UpdatePayload {
     is_active?: boolean;
 }
 
-// --- Sync result envelope (shared by import, refresh, orders) ---
+// --- Sync result envelopes ---
 
-export interface WooCommerceSyncResult {
+/** Response from POST /woocommerce/products/import/apply.
+ *
+ * Every field is a list of per-row messages — one entry per WC product processed,
+ * describing what happened. Counts are derived from the list lengths.
+ */
+export interface WooCommerceImportProductsApplyResult {
+    created: string[];
+    mapped: string[];
+    skipped: string[];
+    errors: string[];
+}
+
+/** Response from PUT /woocommerce/products/update.
+ *
+ * Every field is a list of per-row messages — one entry per WC product processed,
+ * describing what happened. Counts are derived from the list lengths.
+ */
+export interface WooCommerceUpdateProductsResult {
+    updated: string[];
+    skipped: string[];
+    errors: string[];
+}
+
+/** Response from POST /woocommerce/orders/sync. */
+export interface WooCommerceSyncOrdersResult {
     created: number;
     updated: number;
     deleted: number;
     skipped: number;
     errors: string[];
 }
+
+/** Union used by the shared result dialog. */
+export type WooCommerceSyncResultAny =
+    | WooCommerceImportProductsApplyResult
+    | WooCommerceUpdateProductsResult
+    | WooCommerceSyncOrdersResult;
 
 // --- Import flow ---
 
@@ -60,18 +90,18 @@ export interface WCProductMappingPreview {
     pod_product_id: number;
 }
 
-export interface WCSyncProductsPreview {
+export interface WooCommerceImportProductsPreview {
     wc_products: WCImportableProduct[];
     pod_products: PODProductPreview[];
     mappings: WCProductMappingPreview[];
 }
 
-export type WCImportProductAction =
-    | { wc_product_id: number; type: "create" }
-    | { wc_product_id: number; type: "map"; pod_product_id: number };
+export type WooCommerceImportProductsApplyItem =
+    | { wc_product_id: number; action: "create" }
+    | { wc_product_id: number; action: "map"; pod_product_id: number };
 
-export interface WCSyncProductsApplyRequest {
-    actions: WCImportProductAction[];
+export interface WooCommerceImportProductsApply {
+    items: WooCommerceImportProductsApplyItem[];
 }
 
 // --- Shared constants ---
