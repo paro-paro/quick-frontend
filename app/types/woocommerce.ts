@@ -89,9 +89,9 @@ export interface PODProductPreview {
     format: string;
 }
 
-/** WOOCOMMERCE = POD product created from WC (update sync overwrites it);
+/** WC = POD product created from WooCommerce (update sync overwrites it);
  *  POD = mapped to a pre-existing POD product (update sync skips it). */
-export type PODProductSource = "POD" | "WOOCOMMERCE";
+export type PODProductSource = "POD" | "WC";
 
 export interface WCProductMappingPreview {
     wc_product_id: number;

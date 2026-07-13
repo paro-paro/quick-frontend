@@ -60,7 +60,7 @@ const mappingRows = computed(() => {
 // Only products created from WC get updated; ones mapped to a pre-existing
 // POD product keep POD as their source of truth and are skipped by the sync.
 const updatableRows = computed(() =>
-    mappingRows.value.filter((r) => r.pod_product_source === "WOOCOMMERCE"),
+    mappingRows.value.filter((r) => r.pod_product_source === "WC"),
 );
 const skippedRows = computed(() =>
     mappingRows.value.filter((r) => r.pod_product_source === "POD"),
