@@ -7,7 +7,6 @@ import type {
     WooCommerceImportProductsPreview,
     WooCommerceUpdateProductsResult,
 } from "~/types/woocommerce";
-import { WC_API_BASE } from "~/types/woocommerce";
 import { getApiErrorMessage } from "~/utils/api-errors";
 
 const open = defineModel<boolean>("open", { required: true });
@@ -25,7 +24,7 @@ const { data: preview, isPending: isPreviewLoading } = useQuery({
     queryFn: async () => {
         const [res] = await Promise.all([
             $api<ApiResponse<WooCommerceImportProductsPreview>>(
-                `${WC_API_BASE}/woocommerce/products/import/preview`,
+                "/woocommerce/products/import/preview",
             ),
             new Promise((resolve) => setTimeout(resolve, 320)),
         ]);
@@ -97,7 +96,7 @@ const tabContent = computed(() =>
         : {
               title: "Will be skipped",
               description:
-                  "These WooCommerce products are mapped to pre-existing POD products. POD stays their source of truth, so the update leaves them untouched.",
+                  "These WooCommerce products are mapped to pre-existing POD products. POD stays as their source of truth, so the update leaves them untouched.",
               rows: skippedRows.value,
               emptyText: "No products mapped to existing POD products.",
           },
@@ -106,7 +105,7 @@ const tabContent = computed(() =>
 const { mutate: refreshMappedProducts, isPending: isRefreshing } = useMutation({
     mutationFn: async () => {
         const res = await $api<ApiResponse<WooCommerceUpdateProductsResult>>(
-            `${WC_API_BASE}/woocommerce/products/update`,
+            "/woocommerce/products/update",
             { method: "PUT" },
         );
         return res.data;

@@ -8,13 +8,13 @@ import type {
     WooCommerceSyncOrdersResult,
     WooCommerceSyncResultAny,
 } from "~/types/woocommerce";
-import { WC_API_BASE, WC_CONNECTION_URL } from "~/types/woocommerce";
+import { WC_CONNECTION_URL } from "~/types/woocommerce";
 import { getApiErrorMessage } from "~/utils/api-errors";
 import { summarizeSyncResult } from "~/utils/sync-results";
 
-const { user, isAuthReady } = useAuthUser();
-const { $api } = useNuxtApp();
 const toast = useToast();
+const { $api } = useNuxtApp();
+const { user, isAuthReady } = useAuthUser();
 
 // --- Connection query (source of truth for the whole page's mode) ---
 
@@ -73,7 +73,7 @@ function openSyncResult(
 const { mutate: syncOrders, isPending: isSyncingOrders } = useMutation({
     mutationFn: async () => {
         const res = await $api<ApiResponse<WooCommerceSyncOrdersResult>>(
-            `${WC_API_BASE}/woocommerce/orders/sync`,
+            "/woocommerce/orders/sync",
             { method: "POST" },
         );
         return res.data;
@@ -127,7 +127,10 @@ const { mutate: syncOrders, isPending: isSyncingOrders } = useMutation({
                         v-if="isPending"
                         class="flex items-center gap-2 text-muted"
                     >
-                        <UIcon name="i-lucide-loader" class="size-4 animate-spin" />
+                        <UIcon
+                            name="i-lucide-loader"
+                            class="size-4 animate-spin"
+                        />
                         Loading...
                     </div>
 
@@ -149,7 +152,11 @@ const { mutate: syncOrders, isPending: isSyncingOrders } = useMutation({
                     <WCConnectionForm v-else />
                 </div>
 
-                <div v-if="connexion?.connected" class="mb-6 max-w-lg">
+                <!-- `connexion` keeps the last successful data when a refetch errors — gate on the error too -->
+                <div
+                    v-if="!isError && connexion?.connected"
+                    class="mb-6 max-w-lg"
+                >
                     <h2 class="text-lg font-medium mb-4">Actions</h2>
 
                     <div

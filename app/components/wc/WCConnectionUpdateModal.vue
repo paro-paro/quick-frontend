@@ -86,6 +86,7 @@ function onSubmit() {
                 <UFormField label="Store URL">
                     <UInput
                         v-model="form.store_url"
+                        name="store_url"
                         placeholder="https://yourstore.com"
                         class="w-full"
                     />
@@ -97,6 +98,7 @@ function onSubmit() {
                 >
                     <UInput
                         v-model="form.consumer_key"
+                        name="consumer_key"
                         placeholder="ck_..."
                         class="w-full"
                     />
@@ -108,6 +110,7 @@ function onSubmit() {
                 >
                     <UInput
                         v-model="form.consumer_secret"
+                        name="consumer_secret"
                         type="password"
                         placeholder="cs_..."
                         class="w-full"
@@ -120,6 +123,7 @@ function onSubmit() {
                 >
                     <UInput
                         v-model="form.webhook_secret"
+                        name="webhook_secret"
                         type="password"
                         placeholder="..."
                         class="w-full"

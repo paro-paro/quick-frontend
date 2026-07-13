@@ -9,7 +9,6 @@ import type {
     WooCommerceImportProductsApplyResult,
     WooCommerceImportProductsPreview,
 } from "~/types/woocommerce";
-import { WC_API_BASE } from "~/types/woocommerce";
 import { getApiErrorMessage } from "~/utils/api-errors";
 
 const open = defineModel<boolean>("open", { required: true });
@@ -45,7 +44,7 @@ const {
         // fast networks — isPending stays true for at least 320ms.
         const [res] = await Promise.all([
             $api<ApiResponse<WooCommerceImportProductsPreview>>(
-                `${WC_API_BASE}/woocommerce/products/import/preview`,
+                "/woocommerce/products/import/preview",
             ),
             new Promise((resolve) => setTimeout(resolve, 500)),
         ]);
@@ -175,7 +174,7 @@ const { mutate: applySyncProducts, isPending: isApplying } = useMutation({
     mutationFn: async (payload: WooCommerceImportProductsApply) => {
         const res = await $api<
             ApiResponse<WooCommerceImportProductsApplyResult>
-        >(`${WC_API_BASE}/woocommerce/products/import/apply`, {
+        >("/woocommerce/products/import/apply", {
             method: "POST",
             body: payload,
             headers: { "Content-Type": "application/json" },

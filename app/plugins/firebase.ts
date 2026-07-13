@@ -28,6 +28,8 @@ export default defineNuxtPlugin({
     });
 
     const api = $fetch.create({
+      // backend base URL comes from NUXT_PUBLIC_BASE_URL_API (local .env / Vercel env)
+      baseURL: config.public.baseUrlApi,
       async onRequest({ options }) {
         // Wait for the persisted session to be restored on first page load,
         // otherwise early requests (e.g. vue-query on mount) would go out

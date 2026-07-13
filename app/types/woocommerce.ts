@@ -119,5 +119,6 @@ export interface WooCommerceImportProductsApply {
 
 // --- Shared constants ---
 
-export const WC_API_BASE = "http://localhost:5000";
-export const WC_CONNECTION_URL = `${WC_API_BASE}/woocommerce/connection`;
+// Paths are relative — $api carries the backend base URL from runtimeConfig
+// (NUXT_PUBLIC_BASE_URL_API: local .env vs Vercel environment variable).
+export const WC_CONNECTION_URL = "/woocommerce/connection";
