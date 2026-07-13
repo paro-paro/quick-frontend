@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, useNuxtApp, watch } from "#imports";
+import { reactive, useNuxtApp, useToast, watch } from "#imports";
 import { useMutation, useQueryClient } from "@tanstack/vue-query";
 
 import type {
@@ -9,6 +9,7 @@ import type {
     WooCommerceConnectionMutated,
 } from "~/types/woocommerce";
 import { WC_CONNECTION_URL } from "~/types/woocommerce";
+import { getApiErrorMessage } from "~/utils/api-errors";
 
 const open = defineModel<boolean>("open", { required: true });
 
@@ -18,6 +19,7 @@ const props = defineProps<{
 
 const { $api } = useNuxtApp();
 const queryClient = useQueryClient();
+const toast = useToast();
 
 const form = reactive({
     store_url: "",
@@ -35,12 +37,7 @@ watch(open, (isOpen) => {
     form.webhook_secret = "";
 });
 
-const {
-    mutate: updateConnection,
-    isPending: isUpdating,
-    isError: updateError,
-    error: updateErrorObj,
-} = useMutation({
+const { mutate: updateConnection, isPending: isUpdating } = useMutation({
     mutationFn: async (payload: UpdatePayload) => {
         const res = await $api<ApiResponse<WooCommerceConnectionMutated>>(
             WC_CONNECTION_URL,
@@ -55,6 +52,18 @@ const {
     onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ["woocommerce-connexion"] });
         open.value = false;
+        toast.add({
+            title: "Store updated.",
+            color: "success",
+            icon: "i-lucide-check-circle-2",
+        });
+    },
+    onError: (error) => {
+        toast.add({
+            title: getApiErrorMessage(error),
+            color: "error",
+            icon: "i-lucide-alert-triangle",
+        });
     },
 });
 
@@ -73,13 +82,6 @@ function onSubmit() {
 <template>
     <UModal v-model:open="open" title="Update WooCommerce connection">
         <template #body>
-            <UAlert
-                v-if="updateError"
-                color="error"
-                :title="updateErrorObj?.message || 'Failed to update.'"
-                class="mb-4"
-            />
-
             <form class="flex flex-col gap-4" @submit.prevent="onSubmit">
                 <UFormField label="Store URL">
                     <UInput

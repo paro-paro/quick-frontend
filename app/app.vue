@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, useAuthUser, useNuxtApp } from "#imports";
+import { computed, ref, useAuthUser, useNuxtApp, useToast } from "#imports";
 import { useMutation, useQuery } from "@tanstack/vue-query";
 
 import type {
@@ -9,9 +9,12 @@ import type {
     WooCommerceSyncResultAny,
 } from "~/types/woocommerce";
 import { WC_API_BASE, WC_CONNECTION_URL } from "~/types/woocommerce";
+import { getApiErrorMessage } from "~/utils/api-errors";
+import { summarizeSyncResult } from "~/utils/sync-results";
 
 const { user, isAuthReady } = useAuthUser();
 const { $api } = useNuxtApp();
+const toast = useToast();
 
 // --- Connection query (source of truth for the whole page's mode) ---
 
@@ -46,10 +49,23 @@ const syncResult = ref<WooCommerceSyncResultAny | null>(null);
 const syncResultTitle = ref<string>("");
 const isSyncResultOpen = ref(false);
 
-function openSyncResult(title: string, result: WooCommerceSyncResultAny) {
+function openSyncResult(
+    title: string,
+    toastTitle: string,
+    result: WooCommerceSyncResultAny,
+) {
     syncResultTitle.value = title;
     syncResult.value = result;
     isSyncResultOpen.value = true;
+
+    toast.add({
+        title: toastTitle,
+        description: summarizeSyncResult(result),
+        color: result.errors.length ? "warning" : "success",
+        icon: result.errors.length
+            ? "i-lucide-alert-triangle"
+            : "i-lucide-check-circle-2",
+    });
 }
 
 // --- Sync orders (one-click) ---
@@ -62,12 +78,20 @@ const { mutate: syncOrders, isPending: isSyncingOrders } = useMutation({
         );
         return res.data;
     },
-    onSuccess: (data) => openSyncResult("Sync orders result", data),
+    onSuccess: (data) =>
+        openSyncResult("Sync orders result", "Sync orders done", data),
+    onError: (error) => {
+        toast.add({
+            title: getApiErrorMessage(error),
+            color: "error",
+            icon: "i-lucide-alert-triangle",
+        });
+    },
 });
 </script>
 
 <template>
-    <UApp>
+    <UApp :toaster="{ position: 'top-right' }">
         <!-- Auth gate: loading → spinner, signed out → login form only, signed in → the app -->
         <div
             v-if="!isAuthReady"
@@ -187,7 +211,11 @@ const { mutate: syncOrders, isPending: isSyncingOrders } = useMutation({
                     v-model:open="isImportOpen"
                     @applied="
                         (result) =>
-                            openSyncResult('Import products result', result)
+                            openSyncResult(
+                                'Import products result',
+                                'Import products done',
+                                result,
+                            )
                     "
                 />
 
@@ -195,7 +223,11 @@ const { mutate: syncOrders, isPending: isSyncingOrders } = useMutation({
                     v-model:open="isUpdateProductsConfirmOpen"
                     @updated="
                         (result) =>
-                            openSyncResult('Update products result', result)
+                            openSyncResult(
+                                'Update products result',
+                                'Update products done',
+                                result,
+                            )
                     "
                 />
 

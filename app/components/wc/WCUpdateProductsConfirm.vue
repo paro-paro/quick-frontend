@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, useNuxtApp } from "#imports";
+import { computed, ref, useNuxtApp, useToast } from "#imports";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
 
 import type {
@@ -8,6 +8,7 @@ import type {
     WooCommerceUpdateProductsResult,
 } from "~/types/woocommerce";
 import { WC_API_BASE } from "~/types/woocommerce";
+import { getApiErrorMessage } from "~/utils/api-errors";
 
 const open = defineModel<boolean>("open", { required: true });
 
@@ -17,8 +18,9 @@ const emit = defineEmits<{
 
 const { $api } = useNuxtApp();
 const queryClient = useQueryClient();
+const toast = useToast();
 
-const { data: preview, isLoading: isPreviewLoading } = useQuery({
+const { data: preview, isPending: isPreviewLoading } = useQuery({
     queryKey: ["woocommerce-products-import-preview"],
     queryFn: async () => {
         const [res] = await Promise.all([
@@ -115,6 +117,13 @@ const { mutate: refreshMappedProducts, isPending: isRefreshing } = useMutation({
         });
         open.value = false;
         emit("updated", data);
+    },
+    onError: (error) => {
+        toast.add({
+            title: getApiErrorMessage(error),
+            color: "error",
+            icon: "i-lucide-alert-triangle",
+        });
     },
 });
 </script>

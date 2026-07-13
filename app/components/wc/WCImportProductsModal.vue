@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, useNuxtApp, watch } from "#imports";
+import { computed, ref, useNuxtApp, useToast, watch } from "#imports";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
 
 import type {
@@ -10,6 +10,7 @@ import type {
     WooCommerceImportProductsPreview,
 } from "~/types/woocommerce";
 import { WC_API_BASE } from "~/types/woocommerce";
+import { getApiErrorMessage } from "~/utils/api-errors";
 
 const open = defineModel<boolean>("open", { required: true });
 
@@ -19,6 +20,7 @@ const emit = defineEmits<{
 
 const { $api } = useNuxtApp();
 const queryClient = useQueryClient();
+const toast = useToast();
 
 const EMPTY_STATE_HINT =
     'Use the "Update products" button to pull the latest data for products you\'ve already imported.';
@@ -33,14 +35,14 @@ const selectedMappings = ref<Record<number, number | null>>({});
 
 const {
     data: syncPreview,
-    isLoading: isPreviewLoading,
+    isPending: isPreviewLoading,
     isError: isPreviewError,
     error: previewError,
 } = useQuery({
     queryKey: ["woocommerce-products-import-preview"],
     queryFn: async () => {
         // Race the fetch against a min-delay so the spinner doesn't flash on
-        // fast networks — isLoading stays true for at least 320ms.
+        // fast networks — isPending stays true for at least 320ms.
         const [res] = await Promise.all([
             $api<ApiResponse<WooCommerceImportProductsPreview>>(
                 `${WC_API_BASE}/woocommerce/products/import/preview`,
@@ -169,12 +171,7 @@ function podOptionsForRow(wcId: number) {
         }));
 }
 
-const {
-    mutate: applySyncProducts,
-    isPending: isApplying,
-    isError: isApplyError,
-    error: applyError,
-} = useMutation({
+const { mutate: applySyncProducts, isPending: isApplying } = useMutation({
     mutationFn: async (payload: WooCommerceImportProductsApply) => {
         const res = await $api<
             ApiResponse<WooCommerceImportProductsApplyResult>
@@ -191,6 +188,13 @@ const {
         });
         open.value = false;
         emit("applied", data);
+    },
+    onError: (error) => {
+        toast.add({
+            title: getApiErrorMessage(error),
+            color: "error",
+            icon: "i-lucide-alert-triangle",
+        });
     },
 });
 
@@ -423,12 +427,6 @@ function onConfirm() {
                             </li>
                         </ul>
                     </div>
-
-                    <UAlert
-                        v-if="isApplyError"
-                        color="error"
-                        :title="applyError?.message || 'Failed to import.'"
-                    />
 
                     <div class="flex items-center justify-between gap-2">
                         <span class="text-sm text-muted">

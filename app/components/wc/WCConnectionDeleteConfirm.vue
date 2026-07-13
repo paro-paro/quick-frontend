@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { useNuxtApp } from "#imports";
+import { useNuxtApp, useToast } from "#imports";
 import { useMutation, useQueryClient } from "@tanstack/vue-query";
 
 import { WC_CONNECTION_URL } from "~/types/woocommerce";
+import { getApiErrorMessage } from "~/utils/api-errors";
 
 const open = defineModel<boolean>("open", { required: true });
 
 const { $api } = useNuxtApp();
 const queryClient = useQueryClient();
+const toast = useToast();
 
 const { mutate: deleteConnection, isPending: isDeleting } = useMutation({
     mutationFn: async () => {
@@ -16,6 +18,18 @@ const { mutate: deleteConnection, isPending: isDeleting } = useMutation({
     onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ["woocommerce-connexion"] });
         open.value = false;
+        toast.add({
+            title: "Store deleted.",
+            color: "success",
+            icon: "i-lucide-check-circle-2",
+        });
+    },
+    onError: (error) => {
+        toast.add({
+            title: getApiErrorMessage(error),
+            color: "error",
+            icon: "i-lucide-alert-triangle",
+        });
     },
 });
 </script>

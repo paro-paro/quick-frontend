@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, useNuxtApp } from "#imports";
+import { reactive, useNuxtApp, useToast } from "#imports";
 import { useMutation, useQueryClient } from "@tanstack/vue-query";
 
 import type {
@@ -8,9 +8,11 @@ import type {
     WooCommerceConnectionMutated,
 } from "~/types/woocommerce";
 import { WC_CONNECTION_URL } from "~/types/woocommerce";
+import { getApiErrorMessage } from "~/utils/api-errors";
 
 const { $api } = useNuxtApp();
 const queryClient = useQueryClient();
+const toast = useToast();
 
 const form = reactive<CreatePayload>({
     store_url: "",
@@ -19,13 +21,7 @@ const form = reactive<CreatePayload>({
     webhook_secret: "",
 });
 
-const {
-    mutate: createConnection,
-    isPending: isCreating,
-    isSuccess: createSuccess,
-    isError: createError,
-    error: createErrorObj,
-} = useMutation({
+const { mutate: createConnection, isPending: isCreating } = useMutation({
     onMutate: async () => {
         await new Promise((resolve) => setTimeout(resolve, 400));
     },
@@ -40,8 +36,23 @@ const {
         );
         return res.data;
     },
-    onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["woocommerce-connexion"] });
+    // await the refetch so the submit button keeps spinning until the connected view swaps in
+    onSuccess: async () => {
+        await queryClient.invalidateQueries({
+            queryKey: ["woocommerce-connexion"],
+        });
+        toast.add({
+            title: "Store created.",
+            color: "success",
+            icon: "i-lucide-check-circle-2",
+        });
+    },
+    onError: (error) => {
+        toast.add({
+            title: getApiErrorMessage(error),
+            color: "error",
+            icon: "i-lucide-alert-triangle",
+        });
     },
 });
 
@@ -60,19 +71,6 @@ function onSubmit() {
 
 <template>
     <div>
-        <UAlert
-            v-if="createSuccess"
-            color="success"
-            title="Integration saved successfully."
-            class="mb-4"
-        />
-        <UAlert
-            v-if="createError"
-            color="error"
-            :title="createErrorObj?.message || 'Failed to save integration.'"
-            class="mb-4"
-        />
-
         <form class="flex flex-col gap-4" @submit.prevent="onSubmit">
             <UFormField label="Store URL" required>
                 <UInput
