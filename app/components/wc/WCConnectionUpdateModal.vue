@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { reactive, useNuxtApp, watch } from "#imports";
 import { useMutation, useQueryClient } from "@tanstack/vue-query";
 
 import type {
@@ -15,6 +16,7 @@ const props = defineProps<{
     connexion: WooCommerceConnection | undefined;
 }>();
 
+const { $api } = useNuxtApp();
 const queryClient = useQueryClient();
 
 const form = reactive({
@@ -40,7 +42,7 @@ const {
     error: updateErrorObj,
 } = useMutation({
     mutationFn: async (payload: UpdatePayload) => {
-        const res = await $fetch<ApiResponse<WooCommerceConnectionMutated>>(
+        const res = await $api<ApiResponse<WooCommerceConnectionMutated>>(
             WC_CONNECTION_URL,
             {
                 method: "PUT",

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from "#imports";
 import type { WooCommerceSyncResultAny } from "~/types/woocommerce";
 
 const open = defineModel<boolean>("open", { required: true });
@@ -8,13 +9,13 @@ const props = defineProps<{
     result: WooCommerceSyncResultAny | null;
 }>();
 
-// Result shapes:
-// - Import apply result: created / mapped / skipped / errors (all string[]; counts = lengths).
-// - Update products result: updated / skipped / errors (all string[]; counts = lengths).
-// - Sync orders result: created / updated / deleted / skipped (numbers) + errors (string[]).
+// Result shapes (all fields are string[] of per-row messages; counts = lengths):
+// - Import apply result: created / mapped / skipped / errors.
+// - Update products result: updated / skipped / errors.
+// - Sync orders result: created / updated / deleted / skipped / errors.
 //
-// Each tile shows a count — either the numeric value or the length of a string[].
-// Below the tiles, any non-empty string[] field renders its per-row messages.
+// Each tile shows a count; below the tiles, any non-empty field renders its
+// per-row messages.
 
 type ResultRecord = Record<string, number | string[] | undefined>;
 
@@ -37,8 +38,8 @@ const tiles = computed(() => {
         ["created", "Created"],
         ["mapped", "Mapped"],
         ["updated", "Updated"],
-        ["deleted", "Deleted"],
         ["skipped", "Skipped"],
+        ["deleted", "Deleted"],
     ] as const) {
         const value = countOf(r[key]);
         if (value !== null) list.push({ label, value });
@@ -55,6 +56,7 @@ const sections = computed(() => {
         { key: "mapped", label: "Mapped" },
         { key: "updated", label: "Updated" },
         { key: "skipped", label: "Skipped" },
+        { key: "deleted", label: "Deleted" },
     ];
     return defs
         .map((def) => ({ ...def, messages: messagesOf(r[def.key]) }))
@@ -80,7 +82,11 @@ const gridColsClass = computed(() => {
 </script>
 
 <template>
-    <UModal v-model:open="open" :title="title">
+    <UModal
+        v-model:open="open"
+        :title="title"
+        :ui="{ content: 'max-w-2xl' }"
+    >
         <template #body>
             <div v-if="result" class="flex flex-col gap-4">
                 <div class="grid gap-2" :class="gridColsClass">

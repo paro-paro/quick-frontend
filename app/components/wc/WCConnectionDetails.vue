@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useNuxtApp } from "#imports";
 import { useMutation, useQueryClient } from "@tanstack/vue-query";
 
 import type {
@@ -18,11 +19,12 @@ const emit = defineEmits<{
     (e: "requestDelete"): void;
 }>();
 
+const { $api } = useNuxtApp();
 const queryClient = useQueryClient();
 
 const { mutate: toggleActive, isPending: isToggling } = useMutation({
     mutationFn: async (payload: UpdatePayload) => {
-        const res = await $fetch<ApiResponse<WooCommerceConnectionMutated>>(
+        const res = await $api<ApiResponse<WooCommerceConnectionMutated>>(
             WC_CONNECTION_URL,
             {
                 method: "PUT",
@@ -48,7 +50,7 @@ function onToggleActive(is_active: boolean) {
             class="flex items-center justify-between gap-4 rounded-md border border-success/50 px-4 py-3"
         >
             <div class="flex items-center gap-2 text-sm">
-                <UIcon name="i-lucide-check-circle-2" class="text-success" />
+                <UIcon name="i-lucide-check-circle-2" class="size-4 text-success" />
                 <span>Connected to: {{ connexion.store_url }}</span>
             </div>
 
@@ -65,6 +67,7 @@ function onToggleActive(is_active: boolean) {
                 variant="soft"
                 label="Update"
                 icon="i-lucide-pencil"
+                :disabled="!connexion.is_active"
                 @click="emit('requestUpdate')"
             />
             <UButton

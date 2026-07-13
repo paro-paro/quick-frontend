@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed, ref, useNuxtApp, watch } from "#imports";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
 
 import type {
@@ -16,10 +17,11 @@ const emit = defineEmits<{
     (e: "applied", result: WooCommerceImportProductsApplyResult): void;
 }>();
 
+const { $api } = useNuxtApp();
 const queryClient = useQueryClient();
 
 const EMPTY_STATE_HINT =
-    'Use the "Update imported products" button to pull the latest data for products you\'ve already imported.';
+    'Use the "Update products" button to pull the latest data for products you\'ve already imported.';
 
 const IMPORT_HINT =
     "For each WooCommerce product, you can choose to create a new POD product by leaving the dropdown blank, or map it to an existing one by selecting it from the dropdown.";
@@ -40,7 +42,7 @@ const {
         // Race the fetch against a min-delay so the spinner doesn't flash on
         // fast networks — isLoading stays true for at least 320ms.
         const [res] = await Promise.all([
-            $fetch<ApiResponse<WooCommerceImportProductsPreview>>(
+            $api<ApiResponse<WooCommerceImportProductsPreview>>(
                 `${WC_API_BASE}/woocommerce/products/import/preview`,
             ),
             new Promise((resolve) => setTimeout(resolve, 500)),
@@ -174,7 +176,7 @@ const {
     error: applyError,
 } = useMutation({
     mutationFn: async (payload: WooCommerceImportProductsApply) => {
-        const res = await $fetch<
+        const res = await $api<
             ApiResponse<WooCommerceImportProductsApplyResult>
         >(`${WC_API_BASE}/woocommerce/products/import/apply`, {
             method: "POST",
@@ -218,15 +220,20 @@ function onConfirm() {
     <UModal
         v-model:open="open"
         title="Import products"
-        description="Bring new WooCommerce products into POD."
-        :ui="{ content: 'max-w-2xl' }"
+        description="Bring your WooCommerce products into POD."
+        :ui="{
+            content:
+                isPreviewLoading || importableWcProducts.length
+                    ? 'max-w-2xl'
+                    : 'max-w-lg',
+        }"
     >
         <template #body>
             <div
                 v-if="isPreviewLoading"
                 class="flex items-center gap-2 text-muted"
             >
-                <UIcon name="i-lucide-loader" class="animate-spin" />
+                <UIcon name="i-lucide-loader" class="size-4 animate-spin" />
                 Loading products...
             </div>
 
@@ -258,12 +265,9 @@ function onConfirm() {
                 </template>
 
                 <template v-else>
-                    <UAlert
-                        color="info"
-                        variant="soft"
-                        icon="i-lucide-info"
-                        :description="IMPORT_HINT"
-                    />
+                    <p class="mb-2 text-sm text-muted">
+                        {{ IMPORT_HINT }}
+                    </p>
 
                     <div class="rounded-md border border-default">
                         <div
@@ -288,7 +292,9 @@ function onConfirm() {
                             </div>
                         </div>
 
-                        <ul class="divide-y divide-default">
+                        <ul
+                            class="max-h-96 divide-y divide-default overflow-y-auto"
+                        >
                             <li
                                 v-for="wc in importableWcProducts"
                                 :key="wc.wc_product_id"
@@ -351,26 +357,26 @@ function onConfirm() {
                                                 >
                                             </template>
                                             <template v-else>
+                                                <!-- single inline parent so name + format share a text baseline
+                                                     (as flex children they'd be box-centered instead) -->
                                                 <span>
                                                     {{
                                                         podInfoById.get(
                                                             modelValue as number,
                                                         )?.name
-                                                    }}
-                                                </span>
-                                                <span
-                                                    v-if="
-                                                        podInfoById.get(
-                                                            modelValue as number,
-                                                        )?.format
-                                                    "
-                                                    class="ml-2 text-xs text-muted"
-                                                >
-                                                    {{
-                                                        podInfoById.get(
-                                                            modelValue as number,
-                                                        )?.format
-                                                    }}
+                                                    }}<span
+                                                        v-if="
+                                                            podInfoById.get(
+                                                                modelValue as number,
+                                                            )?.format
+                                                        "
+                                                        class="ml-2 text-xs text-muted"
+                                                        >{{
+                                                            podInfoById.get(
+                                                                modelValue as number,
+                                                            )?.format
+                                                        }}</span
+                                                    >
                                                 </span>
                                             </template>
                                         </template>
@@ -383,7 +389,7 @@ function onConfirm() {
                                                     (item as { format: string })
                                                         .format
                                                 "
-                                                class="ml-1 text-xs text-muted"
+                                                class="ml-2 text-xs text-muted"
                                             >
                                                 {{
                                                     (item as { format: string })
@@ -392,7 +398,7 @@ function onConfirm() {
                                             </span>
                                         </template>
                                         <template #empty>
-                                            No POD products to map
+                                            No POD products available
                                         </template>
                                     </USelectMenu>
                                     <UButton
@@ -424,23 +430,30 @@ function onConfirm() {
                         :title="applyError?.message || 'Failed to import.'"
                     />
 
-                    <div class="flex justify-end gap-2">
-                        <UButton
-                            type="button"
-                            color="neutral"
-                            variant="ghost"
-                            label="Cancel"
-                            :disabled="isApplying"
-                            @click="open = false"
-                        />
-                        <UButton
-                            type="button"
-                            color="primary"
-                            :label="`Import ${selectedCount} product${selectedCount === 1 ? '' : 's'}`"
-                            :loading="isApplying"
-                            :disabled="!selectedCount"
-                            @click="onConfirm"
-                        />
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="text-sm text-muted">
+                            {{ selectedCount }} / {{ importableWcProducts.length }}
+                            products selected
+                        </span>
+
+                        <div class="flex gap-2">
+                            <UButton
+                                type="button"
+                                color="neutral"
+                                variant="ghost"
+                                label="Cancel"
+                                :disabled="isApplying"
+                                @click="open = false"
+                            />
+                            <UButton
+                                type="button"
+                                color="primary"
+                                label="Import products"
+                                :loading="isApplying"
+                                :disabled="!selectedCount"
+                                @click="onConfirm"
+                            />
+                        </div>
                     </div>
                 </template>
             </div>

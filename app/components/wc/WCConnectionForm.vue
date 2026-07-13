@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { reactive, useNuxtApp } from "#imports";
 import { useMutation, useQueryClient } from "@tanstack/vue-query";
 
 import type {
@@ -8,6 +9,7 @@ import type {
 } from "~/types/woocommerce";
 import { WC_CONNECTION_URL } from "~/types/woocommerce";
 
+const { $api } = useNuxtApp();
 const queryClient = useQueryClient();
 
 const form = reactive<CreatePayload>({
@@ -24,8 +26,11 @@ const {
     isError: createError,
     error: createErrorObj,
 } = useMutation({
+    onMutate: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 400));
+    },
     mutationFn: async (payload: CreatePayload) => {
-        const res = await $fetch<ApiResponse<WooCommerceConnectionMutated>>(
+        const res = await $api<ApiResponse<WooCommerceConnectionMutated>>(
             WC_CONNECTION_URL,
             {
                 method: "POST",
@@ -110,7 +115,7 @@ function onSubmit() {
                 <UButton
                     type="submit"
                     :loading="isCreating"
-                    label="Connect WooCommerce store"
+                    label="Connect store"
                 />
             </div>
         </form>

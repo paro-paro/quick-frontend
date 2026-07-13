@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed, ref, useNuxtApp } from "#imports";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
 
 import type {
@@ -14,13 +15,14 @@ const emit = defineEmits<{
     (e: "updated", result: WooCommerceUpdateProductsResult): void;
 }>();
 
+const { $api } = useNuxtApp();
 const queryClient = useQueryClient();
 
 const { data: preview, isLoading: isPreviewLoading } = useQuery({
     queryKey: ["woocommerce-products-import-preview"],
     queryFn: async () => {
         const [res] = await Promise.all([
-            $fetch<ApiResponse<WooCommerceImportProductsPreview>>(
+            $api<ApiResponse<WooCommerceImportProductsPreview>>(
                 `${WC_API_BASE}/woocommerce/products/import/preview`,
             ),
             new Promise((resolve) => setTimeout(resolve, 320)),
@@ -31,34 +33,77 @@ const { data: preview, isLoading: isPreviewLoading } = useQuery({
     retry: false,
 });
 
-// Join `mappings` with the WC/POD name lookups so we can render side-by-side rows.
+// Mappings are self-contained on the WC side (name/state come with the row, even for
+// WC products disabled or deleted on the store) — only the POD side needs a lookup.
 const mappingRows = computed(() => {
     if (!preview.value) return [];
-    const wcById = new Map(
-        preview.value.wc_products.map((p) => [p.wc_product_id, p]),
-    );
     const podById = new Map(
         preview.value.pod_products.map((p) => [p.pod_product_id, p]),
     );
     return preview.value.mappings
         .map((m) => {
-            const wc = wcById.get(m.wc_product_id);
             const pod = podById.get(m.pod_product_id);
-            if (!wc || !pod) return null;
+            if (!pod) return null;
             return {
-                wc_product_id: wc.wc_product_id,
-                wc_name: wc.name,
+                wc_product_id: m.wc_product_id,
+                wc_name: m.wc_product_name,
                 pod_product_id: pod.pod_product_id,
                 pod_name: pod.name,
                 pod_format: pod.format,
+                pod_product_source: m.pod_product_source,
             };
         })
-        .filter((r): r is NonNullable<typeof r> => r !== null);
+        .filter((r): r is NonNullable<typeof r> => r !== null)
+        .sort((a, b) => a.wc_name.localeCompare(b.wc_name));
 });
+
+// Only products created from WC get updated; ones mapped to a pre-existing
+// POD product keep POD as their source of truth and are skipped by the sync.
+const updatableRows = computed(() =>
+    mappingRows.value.filter((r) => r.pod_product_source === "WOOCOMMERCE"),
+);
+const skippedRows = computed(() =>
+    mappingRows.value.filter((r) => r.pod_product_source === "POD"),
+);
+
+const activeTab = ref("created");
+
+const tabItems = computed(() => [
+    {
+        value: "created",
+        label: "Created",
+        icon: "i-lucide-refresh-cw",
+        badge: updatableRows.value.length,
+    },
+    {
+        value: "mapped",
+        label: "Mapped",
+        icon: "i-lucide-link",
+        badge: skippedRows.value.length,
+    },
+]);
+
+const tabContent = computed(() =>
+    activeTab.value === "created"
+        ? {
+              title: "Will be updated",
+              description:
+                  "These POD products were created from WooCommerce. All their fields (ref, name, price, tax, categories, etc.) will be overwritten with the current WooCommerce values.",
+              rows: updatableRows.value,
+              emptyText: "No products created from WooCommerce.",
+          }
+        : {
+              title: "Will be skipped",
+              description:
+                  "These WooCommerce products are mapped to pre-existing POD products. POD stays their source of truth, so the update leaves them untouched.",
+              rows: skippedRows.value,
+              emptyText: "No products mapped to existing POD products.",
+          },
+);
 
 const { mutate: refreshMappedProducts, isPending: isRefreshing } = useMutation({
     mutationFn: async () => {
-        const res = await $fetch<ApiResponse<WooCommerceUpdateProductsResult>>(
+        const res = await $api<ApiResponse<WooCommerceUpdateProductsResult>>(
             `${WC_API_BASE}/woocommerce/products/update`,
             { method: "PUT" },
         );
@@ -75,28 +120,67 @@ const { mutate: refreshMappedProducts, isPending: isRefreshing } = useMutation({
 </script>
 
 <template>
-    <UModal v-model:open="open" title="Update imported products">
+    <UModal
+        v-model:open="open"
+        title="Update products"
+        :ui="{
+            content:
+                isPreviewLoading || mappingRows.length
+                    ? 'max-w-2xl'
+                    : 'max-w-lg',
+        }"
+    >
         <template #body>
-            <div class="mb-4 space-y-2 text-sm text-muted">
-                <p>
-                    Every POD product mapped to a WooCommerce product will be
-                    updated. All their fields (name, ref, price, tax, categories, etc.) will be
-                    overwritten with the current WooCommerce values.
-                </p>
+            <div
+                v-if="isPreviewLoading"
+                class="flex items-center gap-2 text-sm text-muted"
+            >
+                <UIcon name="i-lucide-loader" class="size-4 animate-spin" />
+                Loading mappings...
             </div>
 
-            <div class="mb-4">
-                <div v-if="isPreviewLoading" class="flex items-center gap-2 text-sm text-muted">
-                    <UIcon name="i-lucide-loader" class="animate-spin" />
-                    Loading mappings...
+            <div v-else-if="!mappingRows.length" class="flex flex-col gap-4">
+                <UAlert
+                    color="info"
+                    variant="soft"
+                    icon="i-lucide-info"
+                    description="No imported products found. Nothing to update."
+                />
+                <div class="flex justify-end">
+                    <UButton
+                        type="button"
+                        color="neutral"
+                        variant="ghost"
+                        label="Close"
+                        @click="open = false"
+                    />
+                </div>
+            </div>
+
+            <div v-else class="flex flex-col gap-6">
+                <UTabs
+                    v-model="activeTab"
+                    :items="tabItems"
+                    variant="link"
+                    :content="false"
+                />
+
+                <div class="flex flex-col gap-1">
+                    <div class="text-sm font-medium">
+                        {{ tabContent.title }}
+                    </div>
+                    <p class="text-sm text-muted">
+                        {{ tabContent.description }}
+                    </p>
                 </div>
 
-                <div
-                    v-else-if="!mappingRows.length"
-                    class="rounded-md border border-default p-3 text-sm text-muted"
-                >
-                    No mapped products to update.
-                </div>
+                <UAlert
+                    v-if="!tabContent.rows.length"
+                    color="neutral"
+                    variant="soft"
+                    icon="i-lucide-info"
+                    :description="tabContent.emptyText"
+                />
 
                 <div
                     v-else
@@ -107,57 +191,60 @@ const { mutate: refreshMappedProducts, isPending: isRefreshing } = useMutation({
                     >
                         <div class="min-w-0 flex-1">WooCommerce</div>
                         <div class="w-4 shrink-0"></div>
-                        <div class="min-w-0 flex-1">POD</div>
+                        <div class="min-w-0 flex-1">pod</div>
                     </div>
-                    <ul class="max-h-80 divide-y divide-default overflow-y-auto">
+                    <ul
+                        class="max-h-72 divide-y divide-default overflow-y-auto"
+                    >
                         <li
-                            v-for="row in mappingRows"
+                            v-for="row in tabContent.rows"
                             :key="row.wc_product_id"
                             class="flex items-center gap-3 px-3 py-2 text-sm"
                         >
-                        <div class="min-w-0 flex-1">
-                            <div class="truncate">{{ row.wc_name }}</div>
-                            <div class="text-xs text-muted">
-                                WC ID: {{ row.wc_product_id }}
+                            <div class="min-w-0 flex-1">
+                                <div class="truncate">{{ row.wc_name }}</div>
+                                <div class="text-xs text-muted">
+                                    WC ID: {{ row.wc_product_id }}
+                                </div>
                             </div>
-                        </div>
-                        <UIcon
-                            name="i-lucide-arrow-right"
-                            class="shrink-0 text-muted"
-                        />
-                        <div class="min-w-0 flex-1">
-                            <div class="truncate">
-                                {{ row.pod_name }}
-                                <span
-                                    v-if="row.pod_format"
-                                    class="ml-1 text-xs text-muted"
-                                >{{ row.pod_format }}</span>
+                            <UIcon
+                                name="i-lucide-arrow-right"
+                                class="size-4 shrink-0 text-muted"
+                            />
+                            <div class="min-w-0 flex-1">
+                                <div class="truncate">
+                                    {{ row.pod_name }}
+                                    <span
+                                        v-if="row.pod_format"
+                                        class="ml-1 text-xs text-muted"
+                                        >{{ row.pod_format }}</span
+                                    >
+                                </div>
+                                <div class="text-xs text-muted">
+                                    POD ID: {{ row.pod_product_id }}
+                                </div>
                             </div>
-                            <div class="text-xs text-muted">
-                                POD ID: {{ row.pod_product_id }}
-                            </div>
-                        </div>
                         </li>
                     </ul>
                 </div>
-            </div>
 
-            <div class="flex justify-end gap-2">
-                <UButton
-                    type="button"
-                    color="neutral"
-                    variant="ghost"
-                    label="Cancel"
-                    @click="open = false"
-                />
-                <UButton
-                    color="primary"
-                    :loading="isRefreshing"
-                    :disabled="!mappingRows.length"
-                    label="Update"
-                    icon="i-lucide-refresh-cw"
-                    @click="refreshMappedProducts()"
-                />
+                <div class="flex justify-end gap-2">
+                    <UButton
+                        type="button"
+                        color="neutral"
+                        variant="ghost"
+                        label="Cancel"
+                        @click="open = false"
+                    />
+                    <UButton
+                        color="primary"
+                        :loading="isRefreshing"
+                        :disabled="!updatableRows.length"
+                        label="Update"
+                        icon="i-lucide-refresh-cw"
+                        @click="refreshMappedProducts()"
+                    />
+                </div>
             </div>
         </template>
     </UModal>

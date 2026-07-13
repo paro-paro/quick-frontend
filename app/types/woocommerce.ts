@@ -57,12 +57,16 @@ export interface WooCommerceUpdateProductsResult {
     errors: string[];
 }
 
-/** Response from POST /woocommerce/orders/sync. */
+/** Response from POST /woocommerce/orders/sync.
+ *
+ * Every field is a list of per-row messages — one entry per WC order processed,
+ * describing what happened. Counts are derived from the list lengths.
+ */
 export interface WooCommerceSyncOrdersResult {
-    created: number;
-    updated: number;
-    deleted: number;
-    skipped: number;
+    created: string[];
+    updated: string[];
+    deleted: string[];
+    skipped: string[];
     errors: string[];
 }
 
@@ -85,9 +89,18 @@ export interface PODProductPreview {
     format: string;
 }
 
+/** WOOCOMMERCE = POD product created from WC (update sync overwrites it);
+ *  POD = mapped to a pre-existing POD product (update sync skips it). */
+export type PODProductSource = "POD" | "WOOCOMMERCE";
+
 export interface WCProductMappingPreview {
     wc_product_id: number;
+    /** Resolved from the unfiltered WC list; falls back to the WC id. */
+    wc_product_name: string;
+    /** False when the WC product is disabled or deleted on the store. */
+    wc_product_active: boolean;
     pod_product_id: number;
+    pod_product_source: PODProductSource;
 }
 
 export interface WooCommerceImportProductsPreview {

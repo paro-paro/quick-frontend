@@ -1,15 +1,17 @@
 <script setup lang="ts">
+import { useNuxtApp } from "#imports";
 import { useMutation, useQueryClient } from "@tanstack/vue-query";
 
 import { WC_CONNECTION_URL } from "~/types/woocommerce";
 
 const open = defineModel<boolean>("open", { required: true });
 
+const { $api } = useNuxtApp();
 const queryClient = useQueryClient();
 
 const { mutate: deleteConnection, isPending: isDeleting } = useMutation({
     mutationFn: async () => {
-        await $fetch(WC_CONNECTION_URL, { method: "DELETE" });
+        await $api(WC_CONNECTION_URL, { method: "DELETE" });
     },
     onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ["woocommerce-connexion"] });
