@@ -35,7 +35,7 @@ const items: NavigationMenuItem[] = [
             <template #footer>
                 <div class="flex items-center gap-2 w-full min-w-0">
                     <span
-                        class="text-base text-muted truncate"
+                        class="text-xs text-muted truncate"
                         :title="user?.email ?? undefined"
                     >
                         {{ user?.email }}

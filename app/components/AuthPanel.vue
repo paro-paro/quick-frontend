@@ -1,9 +1,24 @@
 <script setup lang="ts">
-import { reactive, useNuxtApp } from "#imports";
+import { reactive, useNuxtApp, useToast } from "#imports";
 import { useMutation } from "@tanstack/vue-query";
+import { FirebaseError } from "firebase/app";
 import { signInWithEmailAndPassword } from "firebase/auth";
 
 const { $firebaseAuth } = useNuxtApp();
+const toast = useToast();
+
+// Map firebase auth error codes to human copy — the raw messages leak
+// implementation noise like `Firebase: Error (auth/invalid-credential).`
+const AUTH_ERROR_MESSAGES: Record<string, string> = {
+    "auth/too-many-requests": "Too many attempts. Try again later.",
+};
+
+function getAuthErrorMessage(error: unknown): string {
+    if (error instanceof FirebaseError && AUTH_ERROR_MESSAGES[error.code]) {
+        return AUTH_ERROR_MESSAGES[error.code];
+    }
+    return "Invalid credentials.";
+}
 
 interface LoginPayload {
     email: string;
@@ -15,13 +30,20 @@ const form = reactive<LoginPayload>({
     password: "",
 });
 
-const { mutate, isPending, isError, error } = useMutation({
+const { mutate, isPending } = useMutation({
     mutationFn: async (payload: LoginPayload) => {
         await signInWithEmailAndPassword(
             $firebaseAuth,
             payload.email,
             payload.password,
         );
+    },
+    onError: (error) => {
+        toast.add({
+            title: getAuthErrorMessage(error),
+            color: "error",
+            icon: "i-lucide-alert-triangle",
+        });
     },
 });
 
@@ -32,13 +54,6 @@ function onSubmit() {
 
 <template>
     <div>
-        <UAlert
-            v-if="isError"
-            color="error"
-            :title="error?.message || 'Failed to sign in.'"
-            class="mb-4"
-        />
-
         <form class="flex flex-col gap-4" @submit.prevent="onSubmit">
             <UFormField label="Email" required>
                 <UInput
