@@ -53,7 +53,7 @@ const { mutate: updateConnection, isPending: isUpdating } = useMutation({
         queryClient.invalidateQueries({ queryKey: ["woocommerce-connexion"] });
         open.value = false;
         toast.add({
-            title: "Store updated.",
+            title: "Connection updated.",
             color: "success",
             icon: "i-lucide-check-circle-2",
         });
@@ -80,7 +80,7 @@ function onSubmit() {
 </script>
 
 <template>
-    <UModal v-model:open="open" title="Update WooCommerce connection">
+    <UModal v-model:open="open" title="Update connection">
         <template #body>
             <form class="flex flex-col gap-4" @submit.prevent="onSubmit">
                 <UFormField label="Store URL">

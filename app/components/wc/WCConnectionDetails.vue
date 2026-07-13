@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useNuxtApp } from "#imports";
+import { useNuxtApp, useToast } from "#imports";
 import { useMutation, useQueryClient } from "@tanstack/vue-query";
 
 import type {
@@ -9,6 +9,7 @@ import type {
     WooCommerceConnectionMutated,
 } from "~/types/woocommerce";
 import { WC_CONNECTION_URL } from "~/types/woocommerce";
+import { getApiErrorMessage } from "~/utils/api-errors";
 
 defineProps<{
     connexion: WooCommerceConnection;
@@ -21,6 +22,7 @@ const emit = defineEmits<{
 
 const { $api } = useNuxtApp();
 const queryClient = useQueryClient();
+const toast = useToast();
 
 const { mutate: toggleActive, isPending: isToggling } = useMutation({
     mutationFn: async (payload: UpdatePayload) => {
@@ -34,8 +36,20 @@ const { mutate: toggleActive, isPending: isToggling } = useMutation({
         );
         return res.data;
     },
-    onSuccess: () => {
+    onSuccess: (_, payload) => {
         queryClient.invalidateQueries({ queryKey: ["woocommerce-connexion"] });
+        toast.add({
+            title: payload.is_active ? "Connection activated." : "Connection deactivated.",
+            color: "success",
+            icon: "i-lucide-check-circle-2",
+        });
+    },
+    onError: (error) => {
+        toast.add({
+            title: getApiErrorMessage(error),
+            color: "error",
+            icon: "i-lucide-alert-triangle",
+        });
     },
 });
 

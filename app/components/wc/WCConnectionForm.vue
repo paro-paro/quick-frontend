@@ -42,7 +42,7 @@ const { mutate: createConnection, isPending: isCreating } = useMutation({
             queryKey: ["woocommerce-connexion"],
         });
         toast.add({
-            title: "Store created.",
+            title: "Connection created.",
             color: "success",
             icon: "i-lucide-check-circle-2",
         });
