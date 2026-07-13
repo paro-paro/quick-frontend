@@ -281,7 +281,7 @@ function onConfirm() {
                             <div
                                 class="flex-1 text-xs font-medium uppercase text-muted"
                             >
-                                WooCommerce product
+                                WC product
                             </div>
                             <div
                                 class="w-64 text-xs font-medium uppercase text-muted"
@@ -324,7 +324,7 @@ function onConfirm() {
                                         {{ wc.name }}
                                     </div>
                                     <div class="text-xs text-muted">
-                                        ID: {{ wc.wc_product_id }}
+                                        WC ID: {{ wc.wc_product_id }}
                                     </div>
                                 </div>
 
