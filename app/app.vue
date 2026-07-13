@@ -1,15 +1,13 @@
 <script setup lang="ts">
 import { computed, ref, useAuthUser, useNuxtApp, useToast } from "#imports";
-import { useMutation, useQuery } from "@tanstack/vue-query";
+import { useQuery } from "@tanstack/vue-query";
 
 import type {
     ApiResponse,
     WooCommerceConnection,
-    WooCommerceSyncOrdersResult,
     WooCommerceSyncResultAny,
 } from "~/types/woocommerce";
 import { WC_CONNECTION_URL } from "~/types/woocommerce";
-import { getApiErrorMessage } from "~/utils/api-errors";
 import { summarizeSyncResult } from "~/utils/sync-results";
 
 const toast = useToast();
@@ -42,6 +40,7 @@ const isUpdateOpen = ref(false);
 const isDeleteConfirmOpen = ref(false);
 const isImportOpen = ref(false);
 const isUpdateProductsConfirmOpen = ref(false);
+const isSyncOrdersConfirmOpen = ref(false);
 
 // --- Sync result dialog (shared by import / refresh / order sync) ---
 
@@ -68,26 +67,6 @@ function openSyncResult(
     });
 }
 
-// --- Sync orders (one-click) ---
-
-const { mutate: syncOrders, isPending: isSyncingOrders } = useMutation({
-    mutationFn: async () => {
-        const res = await $api<ApiResponse<WooCommerceSyncOrdersResult>>(
-            "/woocommerce/orders/sync",
-            { method: "POST" },
-        );
-        return res.data;
-    },
-    onSuccess: (data) =>
-        openSyncResult("Sync orders result", "Sync orders done", data),
-    onError: (error) => {
-        toast.add({
-            title: getApiErrorMessage(error),
-            color: "error",
-            icon: "i-lucide-alert-triangle",
-        });
-    },
-});
 </script>
 
 <template>
@@ -198,9 +177,8 @@ const { mutate: syncOrders, isPending: isSyncingOrders } = useMutation({
                                     color="primary"
                                     label="Sync orders"
                                     icon="i-lucide-refresh-cw"
-                                    :loading="isSyncingOrders"
                                     :disabled="!connexion?.is_active"
-                                    @click="syncOrders()"
+                                    @click="isSyncOrdersConfirmOpen = true"
                                 />
                             </div>
                         </div>
@@ -233,6 +211,18 @@ const { mutate: syncOrders, isPending: isSyncingOrders } = useMutation({
                             openSyncResult(
                                 'Update products result',
                                 'Update products done',
+                                result,
+                            )
+                    "
+                />
+
+                <WCSyncOrdersConfirm
+                    v-model:open="isSyncOrdersConfirmOpen"
+                    @synced="
+                        (result) =>
+                            openSyncResult(
+                                'Sync orders result',
+                                'Sync orders done',
                                 result,
                             )
                     "

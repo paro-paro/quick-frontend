@@ -109,6 +109,24 @@ export interface WooCommerceImportProductsPreview {
     mappings: WCProductMappingPreview[];
 }
 
+// --- Sync orders flow ---
+
+export type WCOrderSyncAction = "create" | "update" | "delete" | "skip";
+
+export interface WCOrderSyncPreview {
+    wc_order_id: number;
+    /** The mapped POD order, when one exists (updates/deletes). */
+    pod_order_id: number | null;
+    status: string;
+    action: WCOrderSyncAction;
+    /** Only set for skips. */
+    reason: string | null;
+}
+
+export interface WooCommerceSyncOrdersPreview {
+    orders: WCOrderSyncPreview[];
+}
+
 export type WooCommerceImportProductsApplyItem =
     | { wc_product_id: number; action: "create" }
     | { wc_product_id: number; action: "map"; pod_product_id: number };

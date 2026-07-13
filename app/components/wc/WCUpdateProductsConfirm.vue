@@ -131,12 +131,7 @@ const { mutate: refreshMappedProducts, isPending: isRefreshing } = useMutation({
     <UModal
         v-model:open="open"
         title="Update products"
-        :ui="{
-            content:
-                isPreviewLoading || mappingRows.length
-                    ? 'max-w-2xl'
-                    : 'max-w-lg',
-        }"
+        :ui="{ content: 'max-w-2xl' }"
     >
         <template #body>
             <div

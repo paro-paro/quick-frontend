@@ -224,12 +224,7 @@ function onConfirm() {
         v-model:open="open"
         title="Import products"
         description="Bring your WooCommerce products into POD."
-        :ui="{
-            content:
-                isPreviewLoading || importableWcProducts.length
-                    ? 'max-w-2xl'
-                    : 'max-w-lg',
-        }"
+        :ui="{ content: 'max-w-2xl' }"
     >
         <template #body>
             <div
