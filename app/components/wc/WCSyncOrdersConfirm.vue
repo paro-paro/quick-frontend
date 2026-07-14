@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, useNuxtApp, useToast } from "#imports";
+import { computed, ref, useNuxtApp, useToast, watch } from "#imports";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
 
 import type {
@@ -42,10 +42,53 @@ const orderRows = computed(() =>
     ),
 );
 
-// skips don't touch POD — the run only acts on the other three
-const actionableCount = computed(
-    () => orderRows.value.filter((o) => o.action !== "skip").length,
+// skips don't touch POD — only the other three actions are selectable
+const actionableRows = computed(() =>
+    orderRows.value.filter((o) => o.action !== "skip"),
 );
+
+// wc_order_id -> whether the user wants this order in the sync run
+const selectedOrders = ref<Set<number>>(new Set());
+
+// Pre-check every actionable order when the preview lands. User opts out per-row.
+watch(preview, (data) => {
+    if (!data) return;
+    selectedOrders.value = new Set(
+        data.orders
+            .filter((o) => o.action !== "skip")
+            .map((o) => o.wc_order_id),
+    );
+});
+
+const allOrdersSelected = computed(
+    () =>
+        !!actionableRows.value.length &&
+        actionableRows.value.every((o) =>
+            selectedOrders.value.has(o.wc_order_id),
+        ),
+);
+const someOrdersSelected = computed(() => {
+    const selected = actionableRows.value.filter((o) =>
+        selectedOrders.value.has(o.wc_order_id),
+    ).length;
+    return selected > 0 && selected < actionableRows.value.length;
+});
+
+function toggleAllOrders(checked: boolean) {
+    const next = new Set(selectedOrders.value);
+    for (const o of actionableRows.value) {
+        if (checked) next.add(o.wc_order_id);
+        else next.delete(o.wc_order_id);
+    }
+    selectedOrders.value = next;
+}
+
+function toggleOneOrder(wcOrderId: number, checked: boolean) {
+    const next = new Set(selectedOrders.value);
+    if (checked) next.add(wcOrderId);
+    else next.delete(wcOrderId);
+    selectedOrders.value = next;
+}
 
 const ACTION_BADGES: Record<
     WCOrderSyncAction,
@@ -61,7 +104,11 @@ const { mutate: syncOrders, isPending: isSyncing } = useMutation({
     mutationFn: async () => {
         const res = await $api<ApiResponse<WooCommerceSyncOrdersResult>>(
             "/woocommerce/orders/sync",
-            { method: "POST" },
+            {
+                method: "POST",
+                body: { wc_order_ids: [...selectedOrders.value] },
+                headers: { "Content-Type": "application/json" },
+            },
         );
         return res.data;
     },
@@ -128,6 +175,13 @@ const { mutate: syncOrders, isPending: isSyncing } = useMutation({
                     <div
                         class="flex items-center gap-3 border-b border-default bg-elevated/40 px-3 py-2 text-xs font-medium uppercase text-muted"
                     >
+                        <UCheckbox
+                            :model-value="allOrdersSelected"
+                            :indeterminate="someOrdersSelected"
+                            @update:model-value="
+                                toggleAllOrders($event as boolean)
+                            "
+                        />
                         <div class="w-24 shrink-0">WC order</div>
                         <div class="w-24 shrink-0">POD order</div>
                         <div class="min-w-0 flex-1">WC status</div>
@@ -141,6 +195,20 @@ const { mutate: syncOrders, isPending: isSyncing } = useMutation({
                             :key="row.wc_order_id"
                             class="flex items-center gap-3 px-3 py-2 text-sm"
                         >
+                            <!-- skipped orders are not selectable — the run ignores them either way -->
+                            <UCheckbox
+                                v-if="row.action !== 'skip'"
+                                :model-value="
+                                    selectedOrders.has(row.wc_order_id)
+                                "
+                                @update:model-value="
+                                    toggleOneOrder(
+                                        row.wc_order_id,
+                                        $event as boolean,
+                                    )
+                                "
+                            />
+                            <div v-else class="w-4 shrink-0"></div>
                             <div class="w-24 shrink-0">
                                 #{{ row.wc_order_id }}
                             </div>
@@ -171,21 +239,32 @@ const { mutate: syncOrders, isPending: isSyncing } = useMutation({
                     </ul>
                 </div>
 
-                <div class="flex justify-end gap-2">
-                    <UButton
-                        type="button"
-                        color="neutral"
-                        variant="ghost"
-                        label="Cancel"
-                        @click="open = false"
-                    />
-                    <UButton
-                        color="primary"
-                        :loading="isSyncing"
-                        :disabled="!actionableCount"
-                        label="Sync"
-                        @click="syncOrders()"
-                    />
+                <div class="flex items-center justify-between gap-2">
+                    <span
+                        v-if="actionableRows.length"
+                        class="text-sm text-muted"
+                    >
+                        {{ selectedOrders.size }} /
+                        {{ actionableRows.length }} orders selected
+                    </span>
+                    <span v-else></span>
+
+                    <div class="flex gap-2">
+                        <UButton
+                            type="button"
+                            color="neutral"
+                            variant="ghost"
+                            label="Cancel"
+                            @click="open = false"
+                        />
+                        <UButton
+                            color="primary"
+                            :loading="isSyncing"
+                            :disabled="!selectedOrders.size"
+                            label="Sync"
+                            @click="syncOrders()"
+                        />
+                    </div>
                 </div>
             </div>
         </template>

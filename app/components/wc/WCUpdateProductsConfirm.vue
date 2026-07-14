@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { computed, ref, useNuxtApp, useToast, useUiSettings } from "#imports";
+import {
+    computed,
+    ref,
+    useNuxtApp,
+    useToast,
+    useUiSettings,
+    watch,
+} from "#imports";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
 
 import type {
@@ -105,6 +112,51 @@ const tabContent = computed(() =>
           },
 );
 
+// --- Selection (created rows only) ---
+
+// wc_product_id -> whether the user wants this product in the update run
+const selectedForUpdate = ref<Set<number>>(new Set());
+
+// Pre-check every updatable row when the preview lands. User opts out per-row.
+watch(preview, (data) => {
+    if (!data) return;
+    selectedForUpdate.value = new Set(
+        data.mappings
+            .filter((m) => m.pod_product_source === "WC")
+            .map((m) => m.wc_product_id),
+    );
+});
+
+const allUpdatableSelected = computed(
+    () =>
+        !!updatableRows.value.length &&
+        updatableRows.value.every((r) =>
+            selectedForUpdate.value.has(r.wc_product_id),
+        ),
+);
+const someUpdatableSelected = computed(() => {
+    const selected = updatableRows.value.filter((r) =>
+        selectedForUpdate.value.has(r.wc_product_id),
+    ).length;
+    return selected > 0 && selected < updatableRows.value.length;
+});
+
+function toggleAllUpdate(checked: boolean) {
+    const next = new Set(selectedForUpdate.value);
+    for (const r of updatableRows.value) {
+        if (checked) next.add(r.wc_product_id);
+        else next.delete(r.wc_product_id);
+    }
+    selectedForUpdate.value = next;
+}
+
+function toggleOneUpdate(wcId: number, checked: boolean) {
+    const next = new Set(selectedForUpdate.value);
+    if (checked) next.add(wcId);
+    else next.delete(wcId);
+    selectedForUpdate.value = next;
+}
+
 // --- Re-map (mapped rows only) ---
 
 // POD ids already claimed by a mapping — excluded as re-map targets (a row keeps its own pick)
@@ -198,7 +250,11 @@ const { mutate: refreshMappedProducts, isPending: isRefreshing } = useMutation({
     mutationFn: async () => {
         const res = await $api<ApiResponse<WooCommerceUpdateProductsResult>>(
             "/woocommerce/products/update",
-            { method: "PUT" },
+            {
+                method: "PUT",
+                body: { wc_product_ids: [...selectedForUpdate.value] },
+                headers: { "Content-Type": "application/json" },
+            },
         );
         return res.data;
     },
@@ -290,6 +346,14 @@ const { mutate: refreshMappedProducts, isPending: isRefreshing } = useMutation({
                     <div
                         class="flex items-center gap-3 border-b border-default bg-elevated/40 px-3 py-2 text-xs font-medium uppercase text-muted"
                     >
+                        <UCheckbox
+                            v-if="activeTab === 'created'"
+                            :model-value="allUpdatableSelected"
+                            :indeterminate="someUpdatableSelected"
+                            @update:model-value="
+                                toggleAllUpdate($event as boolean)
+                            "
+                        />
                         <div class="min-w-0 flex-1">WooCommerce</div>
                         <div class="w-4 shrink-0"></div>
                         <div class="min-w-0 flex-1">pod</div>
@@ -302,6 +366,18 @@ const { mutate: refreshMappedProducts, isPending: isRefreshing } = useMutation({
                             :key="row.wc_product_id"
                             class="flex items-center gap-3 px-3 py-2 text-sm"
                         >
+                            <UCheckbox
+                                v-if="row.pod_product_source === 'WC'"
+                                :model-value="
+                                    selectedForUpdate.has(row.wc_product_id)
+                                "
+                                @update:model-value="
+                                    toggleOneUpdate(
+                                        row.wc_product_id,
+                                        $event as boolean,
+                                    )
+                                "
+                            />
                             <div class="min-w-0 flex-1">
                                 <div class="truncate">{{ row.wc_name }}</div>
                                 <div
@@ -404,22 +480,33 @@ const { mutate: refreshMappedProducts, isPending: isRefreshing } = useMutation({
                     </ul>
                 </div>
 
-                <div class="flex justify-end gap-2">
-                    <UButton
-                        type="button"
-                        color="neutral"
-                        variant="ghost"
-                        label="Cancel"
-                        @click="open = false"
-                    />
-                    <UButton
-                        v-if="activeTab === 'created'"
-                        color="primary"
-                        :loading="isRefreshing"
-                        :disabled="!updatableRows.length"
-                        label="Update"
-                        @click="refreshMappedProducts()"
-                    />
+                <div class="flex items-center justify-between gap-2">
+                    <span
+                        v-if="activeTab === 'created' && updatableRows.length"
+                        class="text-sm text-muted"
+                    >
+                        {{ selectedForUpdate.size }} /
+                        {{ updatableRows.length }} products selected
+                    </span>
+                    <span v-else></span>
+
+                    <div class="flex gap-2">
+                        <UButton
+                            type="button"
+                            color="neutral"
+                            variant="ghost"
+                            label="Cancel"
+                            @click="open = false"
+                        />
+                        <UButton
+                            v-if="activeTab === 'created'"
+                            color="primary"
+                            :loading="isRefreshing"
+                            :disabled="!selectedForUpdate.size"
+                            label="Update"
+                            @click="refreshMappedProducts()"
+                        />
+                    </div>
                 </div>
             </div>
         </template>
