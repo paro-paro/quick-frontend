@@ -9,7 +9,7 @@ const STORAGE_KEY = "ui-show-product-ids";
 export function useUiSettings() {
     const showProductIds = useState<boolean>(
         "ui-show-product-ids",
-        () => localStorage.getItem(STORAGE_KEY) !== "false",
+        () => localStorage.getItem(STORAGE_KEY) === "true",
     );
 
     function setShowProductIds(value: boolean) {

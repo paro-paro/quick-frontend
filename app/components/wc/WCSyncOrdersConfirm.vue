@@ -174,7 +174,7 @@ const { mutate: syncOrders, isPending: isSyncing } = useMutation({
                 <div class="rounded-md border border-default overflow-hidden">
                     <!-- header and rows share the same grid template so the columns always align -->
                     <div
-                        class="grid grid-cols-[1rem_5rem_6rem_5rem_1fr] items-center gap-3 border-b border-default bg-elevated/40 px-3 py-2 text-xs font-medium uppercase text-muted"
+                        class="grid grid-cols-[1rem_5rem_5rem_6rem_1fr] items-center gap-3 border-b border-default bg-elevated/40 px-3 py-2 text-xs font-medium uppercase text-muted"
                     >
                         <UCheckbox
                             :model-value="allOrdersSelected"
@@ -184,8 +184,8 @@ const { mutate: syncOrders, isPending: isSyncing } = useMutation({
                             "
                         />
                         <div>WC order</div>
-                        <div>WC status</div>
                         <div>POD order</div>
+                        <div>WC status</div>
                         <div>Action</div>
                     </div>
                     <ul
@@ -194,7 +194,7 @@ const { mutate: syncOrders, isPending: isSyncing } = useMutation({
                         <li
                             v-for="row in orderRows"
                             :key="row.wc_order_id"
-                            class="grid grid-cols-[1rem_5rem_6rem_5rem_1fr] items-center gap-3 px-3 py-2 text-sm"
+                            class="grid grid-cols-[1rem_5rem_5rem_6rem_1fr] items-center gap-3 px-3 py-2 text-sm"
                             :class="
                                 row.action !== 'skip'
                                     ? 'cursor-pointer hover:bg-elevated/40'
@@ -224,16 +224,16 @@ const { mutate: syncOrders, isPending: isSyncing } = useMutation({
                             />
                             <div v-else></div>
                             <div>#{{ row.wc_order_id }}</div>
-                            <div class="truncate">
-                                {{ row.status }}
-                            </div>
                             <div>
                                 <template v-if="row.pod_order_id">
                                     PED{{ row.pod_order_id }}
                                 </template>
                                 <span v-else class="text-dimmed">—</span>
                             </div>
-                            <div class="min-w-0 flex-1">
+                            <div class="truncate">
+                                {{ row.status }}
+                            </div>
+                            <div class="min-w-0">
                                 <UBadge
                                     :color="ACTION_BADGES[row.action].color"
                                     variant="soft"
