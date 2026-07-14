@@ -36,6 +36,7 @@ const tiles = computed(() => {
     const list: { label: string; value: number }[] = [];
     for (const [key, label] of [
         ["created", "Created"],
+        ["pushed", "Pushed"],
         ["mapped", "Mapped"],
         ["updated", "Updated"],
         ["skipped", "Skipped"],
@@ -53,6 +54,7 @@ const sections = computed(() => {
 
     const defs: { key: string; label: string }[] = [
         { key: "created", label: "Created" },
+        { key: "pushed", label: "Pushed" },
         { key: "mapped", label: "Mapped" },
         { key: "updated", label: "Updated" },
         { key: "skipped", label: "Skipped" },

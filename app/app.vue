@@ -214,6 +214,14 @@ function openSyncResult(
                                 result,
                             )
                     "
+                    @pushed="
+                        (result) =>
+                            openSyncResult(
+                                'Push products result',
+                                'Products pushed.',
+                                result,
+                            )
+                    "
                 />
 
                 <WCSyncOrdersConfirm

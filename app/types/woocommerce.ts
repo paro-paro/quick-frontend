@@ -70,10 +70,22 @@ export interface WooCommerceSyncOrdersResult {
     errors: string[];
 }
 
+/** Response from PUT /woocommerce/products/push.
+ *
+ * Every field is a list of per-row messages — one entry per mapped product processed,
+ * describing what happened. Counts are derived from the list lengths.
+ */
+export interface WooCommercePushProductsResult {
+    pushed: string[];
+    skipped: string[];
+    errors: string[];
+}
+
 /** Union used by the shared result dialog. */
 export type WooCommerceSyncResultAny =
     | WooCommerceImportProductsApplyResult
     | WooCommerceUpdateProductsResult
+    | WooCommercePushProductsResult
     | WooCommerceSyncOrdersResult;
 
 // --- Import flow ---

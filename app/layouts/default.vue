@@ -35,7 +35,7 @@ const items: NavigationMenuItem[] = [
 
             <!-- global UI settings -->
             <div class="mt-auto flex items-center justify-between gap-2">
-                <span class="text-xs text-muted">Show product IDs</span>
+                <span class="text-xs text-muted">show product IDs</span>
                 <USwitch
                     :model-value="showProductIds"
                     size="sm"

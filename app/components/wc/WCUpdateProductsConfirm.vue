@@ -12,6 +12,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
 import type {
     ApiResponse,
     WooCommerceImportProductsPreview,
+    WooCommercePushProductsResult,
     WooCommerceUpdateProductsResult,
 } from "~/types/woocommerce";
 import { getApiErrorMessage } from "~/utils/api-errors";
@@ -20,6 +21,7 @@ const open = defineModel<boolean>("open", { required: true });
 
 const emit = defineEmits<{
     (e: "updated", result: WooCommerceUpdateProductsResult): void;
+    (e: "pushed", result: WooCommercePushProductsResult): void;
 }>();
 
 const { $api } = useNuxtApp();
@@ -99,6 +101,7 @@ const tabContent = computed(() =>
               description:
                   "These POD products were created from WooCommerce. All their fields (ref, name, price, tax, categories, etc.) will be overwritten with the current WooCommerce values.",
               hint: null,
+              pushHint: null,
               rows: updatableRows.value,
               emptyText: "No products created from WooCommerce.",
           }
@@ -107,8 +110,10 @@ const tabContent = computed(() =>
               description:
                   "These WooCommerce products are mapped to pre-existing POD products. POD remains their source of truth, so the update leaves them untouched.",
               hint: "What you can do from this view is update a mapping by selecting a different POD product from the dropdown, or delete it with the X button. Changes are applied immediately.",
+              pushHint:
+                  "You can also update your WC products with the name and price of their mapped POD products by pushing them.",
               rows: skippedRows.value,
-              emptyText: "No products mapped to existing POD products.",
+              emptyText: "No WC products mapped to existing POD products.",
           },
 );
 
@@ -156,6 +161,79 @@ function toggleOneUpdate(wcId: number, checked: boolean) {
     else next.delete(wcId);
     selectedForUpdate.value = next;
 }
+
+// --- Selection (mapped rows only) ---
+
+// wc_product_id -> whether the user wants this mapped product in the push run
+const selectedForPush = ref<Set<number>>(new Set());
+
+// Pre-check every mapped row when the preview lands. User opts out per-row.
+watch(preview, (data) => {
+    if (!data) return;
+    selectedForPush.value = new Set(
+        data.mappings
+            .filter((m) => m.pod_product_source === "POD")
+            .map((m) => m.wc_product_id),
+    );
+});
+
+const allMappedSelected = computed(
+    () =>
+        !!skippedRows.value.length &&
+        skippedRows.value.every((r) =>
+            selectedForPush.value.has(r.wc_product_id),
+        ),
+);
+const someMappedSelected = computed(() => {
+    const selected = skippedRows.value.filter((r) =>
+        selectedForPush.value.has(r.wc_product_id),
+    ).length;
+    return selected > 0 && selected < skippedRows.value.length;
+});
+
+function toggleAllPush(checked: boolean) {
+    const next = new Set(selectedForPush.value);
+    for (const r of skippedRows.value) {
+        if (checked) next.add(r.wc_product_id);
+        else next.delete(r.wc_product_id);
+    }
+    selectedForPush.value = next;
+}
+
+function toggleOnePush(wcId: number, checked: boolean) {
+    const next = new Set(selectedForPush.value);
+    if (checked) next.add(wcId);
+    else next.delete(wcId);
+    selectedForPush.value = next;
+}
+
+const { mutate: pushProducts, isPending: isPushing } = useMutation({
+    mutationFn: async () => {
+        const res = await $api<ApiResponse<WooCommercePushProductsResult>>(
+            "/woocommerce/products/push",
+            {
+                method: "PUT",
+                body: { wc_product_ids: [...selectedForPush.value] },
+                headers: { "Content-Type": "application/json" },
+            },
+        );
+        return res.data;
+    },
+    onSuccess: (data) => {
+        queryClient.invalidateQueries({
+            queryKey: ["woocommerce-products-import-preview"],
+        });
+        open.value = false;
+        emit("pushed", data);
+    },
+    onError: (error) => {
+        toast.add({
+            title: getApiErrorMessage(error),
+            color: "error",
+            icon: "i-lucide-alert-triangle",
+        });
+    },
+});
 
 // --- Re-map (mapped rows only) ---
 
@@ -314,6 +392,7 @@ const { mutate: refreshMappedProducts, isPending: isRefreshing } = useMutation({
                     :items="tabItems"
                     variant="link"
                     :content="false"
+                    class="-mt-2"
                 />
 
                 <div class="flex flex-col gap-1">
@@ -327,6 +406,12 @@ const { mutate: refreshMappedProducts, isPending: isRefreshing } = useMutation({
                         <USeparator class="my-2" />
                         <p class="text-sm text-muted">
                             {{ tabContent.hint }}
+                        </p>
+                    </template>
+                    <template v-if="tabContent.pushHint">
+                        <USeparator class="my-2" />
+                        <p class="text-sm text-muted">
+                            {{ tabContent.pushHint }}
                         </p>
                     </template>
                 </div>
@@ -354,6 +439,14 @@ const { mutate: refreshMappedProducts, isPending: isRefreshing } = useMutation({
                                 toggleAllUpdate($event as boolean)
                             "
                         />
+                        <UCheckbox
+                            v-else
+                            :model-value="allMappedSelected"
+                            :indeterminate="someMappedSelected"
+                            @update:model-value="
+                                toggleAllPush($event as boolean)
+                            "
+                        />
                         <div class="min-w-0 flex-1">WooCommerce</div>
                         <div class="w-4 shrink-0"></div>
                         <div class="min-w-0 flex-1">pod</div>
@@ -364,20 +457,21 @@ const { mutate: refreshMappedProducts, isPending: isRefreshing } = useMutation({
                         <li
                             v-for="row in tabContent.rows"
                             :key="row.wc_product_id"
-                            class="flex items-center gap-3 px-3 py-2 text-sm"
-                            :class="
-                                row.pod_product_source === 'WC'
-                                    ? 'cursor-pointer hover:bg-elevated/40'
-                                    : ''
-                            "
+                            class="flex cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-elevated/40"
                             @click="
-                                row.pod_product_source === 'WC' &&
-                                    toggleOneUpdate(
-                                        row.wc_product_id,
-                                        !selectedForUpdate.has(
-                                            row.wc_product_id,
-                                        ),
-                                    )
+                                row.pod_product_source === 'WC'
+                                    ? toggleOneUpdate(
+                                          row.wc_product_id,
+                                          !selectedForUpdate.has(
+                                              row.wc_product_id,
+                                          ),
+                                      )
+                                    : toggleOnePush(
+                                          row.wc_product_id,
+                                          !selectedForPush.has(
+                                              row.wc_product_id,
+                                          ),
+                                      )
                             "
                         >
                             <UCheckbox
@@ -393,6 +487,19 @@ const { mutate: refreshMappedProducts, isPending: isRefreshing } = useMutation({
                                     )
                                 "
                             />
+                            <UCheckbox
+                                v-else
+                                :model-value="
+                                    selectedForPush.has(row.wc_product_id)
+                                "
+                                @click.stop
+                                @update:model-value="
+                                    toggleOnePush(
+                                        row.wc_product_id,
+                                        $event as boolean,
+                                    )
+                                "
+                            />
                             <div class="min-w-0 flex-1">
                                 <div class="truncate">{{ row.wc_name }}</div>
                                 <div
@@ -402,8 +509,13 @@ const { mutate: refreshMappedProducts, isPending: isRefreshing } = useMutation({
                                     ID: {{ row.wc_product_id }}
                                 </div>
                             </div>
+                            <!-- the arrow shows the direction of truth: WC → POD on Created, POD → WC on Mapped -->
                             <UIcon
-                                name="i-lucide-arrow-right"
+                                :name="
+                                    row.pod_product_source === 'POD'
+                                        ? 'i-lucide-arrow-left'
+                                        : 'i-lucide-arrow-right'
+                                "
                                 class="size-4 shrink-0 text-muted"
                             />
                             <!-- Mapped rows: the POD target is editable — selecting re-maps
@@ -411,6 +523,7 @@ const { mutate: refreshMappedProducts, isPending: isRefreshing } = useMutation({
                             <div
                                 v-if="row.pod_product_source === 'POD'"
                                 class="min-w-0 flex-1"
+                                @click.stop
                             >
                                 <div class="flex items-center gap-1">
                                     <USelectMenu
@@ -503,6 +616,13 @@ const { mutate: refreshMappedProducts, isPending: isRefreshing } = useMutation({
                         {{ selectedForUpdate.size }} /
                         {{ updatableRows.length }} products selected
                     </span>
+                    <span
+                        v-else-if="activeTab === 'mapped' && skippedRows.length"
+                        class="text-sm text-muted"
+                    >
+                        {{ selectedForPush.size }} /
+                        {{ skippedRows.length }} products selected
+                    </span>
                     <span v-else></span>
 
                     <div class="flex gap-2">
@@ -520,6 +640,14 @@ const { mutate: refreshMappedProducts, isPending: isRefreshing } = useMutation({
                             :disabled="!selectedForUpdate.size"
                             label="Update"
                             @click="refreshMappedProducts()"
+                        />
+                        <UButton
+                            v-else
+                            color="primary"
+                            :loading="isPushing"
+                            :disabled="!selectedForPush.size"
+                            label="Push"
+                            @click="pushProducts()"
                         />
                     </div>
                 </div>
