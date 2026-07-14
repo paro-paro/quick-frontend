@@ -111,7 +111,7 @@ const tabContent = computed(() =>
                   "These WooCommerce products are mapped to pre-existing POD products. POD remains their source of truth, so the update leaves them untouched.",
               hint: "What you can do from this view is update a mapping by selecting a different POD product from the dropdown, or delete it with the X button. Changes are applied immediately.",
               pushHint:
-                  "You can also update your WC products with the name and price of their mapped POD products by pushing them.",
+                  "You can also update your WC products with the values (name and price) of their mapped POD products by pushing them.",
               rows: skippedRows.value,
               emptyText: "No WC products mapped to existing POD products.",
           },

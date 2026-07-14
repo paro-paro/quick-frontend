@@ -43,6 +43,8 @@ const items: NavigationMenuItem[] = [
                 />
             </div>
 
+            <USeparator />
+
             <template #footer>
                 <div class="flex items-center gap-2 w-full min-w-0">
                     <span

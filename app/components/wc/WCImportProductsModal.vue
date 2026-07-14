@@ -23,7 +23,7 @@ const toast = useToast();
 const { showProductIds } = useUiSettings();
 
 const EMPTY_STATE_HINT =
-    'Use the "Update products" button to pull the latest data for products you\'ve already imported.';
+    "Use the “Update products” button to pull the latest data for products you’ve already imported.";
 
 const IMPORT_HINT =
     "For each WooCommerce product, you can choose to create a new POD product by leaving the dropdown blank, or map it to an existing one by selecting it from the dropdown.";
