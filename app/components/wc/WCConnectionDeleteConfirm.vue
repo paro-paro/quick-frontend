@@ -54,8 +54,7 @@ const { mutate: deleteConnection, isPending: isDeleting } = useMutation({
                 <UButton
                     color="error"
                     :loading="isDeleting"
-                    label="Delete"
-                    icon="i-lucide-trash-2"
+                    label="Yes, delete"
                     @click="deleteConnection()"
                 />
             </div>
