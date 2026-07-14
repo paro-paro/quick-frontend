@@ -370,7 +370,7 @@ const { mutate: refreshMappedProducts, isPending: isRefreshing } = useMutation({
 
             <div v-else-if="!mappingRows.length" class="flex flex-col gap-4">
                 <UAlert
-                    color="info"
+                    color="neutral"
                     variant="soft"
                     icon="i-lucide-info"
                     description="No imported products found. Nothing to update."
