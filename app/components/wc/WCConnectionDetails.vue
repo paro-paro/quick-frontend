@@ -39,7 +39,7 @@ const { mutate: toggleActive, isPending: isToggling } = useMutation({
     onSuccess: (_, payload) => {
         queryClient.invalidateQueries({ queryKey: ["woocommerce-connexion"] });
         toast.add({
-            title: payload.is_active ? "Connection activated." : "Connection deactivated.",
+            title: payload.is_active ? "Connection active." : "Connection inactive.",
             color: "success",
             icon: "i-lucide-check-circle-2",
         });

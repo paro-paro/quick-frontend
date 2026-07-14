@@ -38,8 +38,9 @@ const { mutate: deleteConnection, isPending: isDeleting } = useMutation({
     <UModal v-model:open="open" title="Delete connection">
         <template #body>
             <p class="mb-4 text-sm text-muted">
-                Are you sure you want to delete this connection? This will stop all
-                WooCommerce syncs for this account.
+                Are you sure you want to delete this connection? Product and
+                order syncing with your WooCommerce store will stop until you
+                connect it again.
             </p>
 
             <div class="flex justify-end gap-2">
