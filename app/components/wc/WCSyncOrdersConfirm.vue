@@ -166,8 +166,8 @@ const { mutate: syncOrders, isPending: isSyncing } = useMutation({
                 <div class="space-y-2 text-sm text-muted">
                     <p>Syncing brings your WooCommerce orders into POD.</p>
                     <p>
-                        Here you can review the action planned for each order
-                        before running it.
+                        From this view you can review the action planned for
+                        each order before running it.
                     </p>
                 </div>
 
@@ -194,6 +194,18 @@ const { mutate: syncOrders, isPending: isSyncing } = useMutation({
                             v-for="row in orderRows"
                             :key="row.wc_order_id"
                             class="flex items-center gap-3 px-3 py-2 text-sm"
+                            :class="
+                                row.action !== 'skip'
+                                    ? 'cursor-pointer hover:bg-elevated/40'
+                                    : ''
+                            "
+                            @click="
+                                row.action !== 'skip' &&
+                                    toggleOneOrder(
+                                        row.wc_order_id,
+                                        !selectedOrders.has(row.wc_order_id),
+                                    )
+                            "
                         >
                             <!-- skipped orders are not selectable — the run ignores them either way -->
                             <UCheckbox
@@ -201,6 +213,7 @@ const { mutate: syncOrders, isPending: isSyncing } = useMutation({
                                 :model-value="
                                     selectedOrders.has(row.wc_order_id)
                                 "
+                                @click.stop
                                 @update:model-value="
                                     toggleOneOrder(
                                         row.wc_order_id,

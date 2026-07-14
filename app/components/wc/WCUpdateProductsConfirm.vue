@@ -365,12 +365,27 @@ const { mutate: refreshMappedProducts, isPending: isRefreshing } = useMutation({
                             v-for="row in tabContent.rows"
                             :key="row.wc_product_id"
                             class="flex items-center gap-3 px-3 py-2 text-sm"
+                            :class="
+                                row.pod_product_source === 'WC'
+                                    ? 'cursor-pointer hover:bg-elevated/40'
+                                    : ''
+                            "
+                            @click="
+                                row.pod_product_source === 'WC' &&
+                                    toggleOneUpdate(
+                                        row.wc_product_id,
+                                        !selectedForUpdate.has(
+                                            row.wc_product_id,
+                                        ),
+                                    )
+                            "
                         >
                             <UCheckbox
                                 v-if="row.pod_product_source === 'WC'"
                                 :model-value="
                                     selectedForUpdate.has(row.wc_product_id)
                                 "
+                                @click.stop
                                 @update:model-value="
                                     toggleOneUpdate(
                                         row.wc_product_id,
