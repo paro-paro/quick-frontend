@@ -198,7 +198,7 @@ function openSyncResult(
                         (result) =>
                             openSyncResult(
                                 'Import products result',
-                                'Import products done',
+                                'Products imported.',
                                 result,
                             )
                     "
@@ -210,7 +210,7 @@ function openSyncResult(
                         (result) =>
                             openSyncResult(
                                 'Update products result',
-                                'Update products done',
+                                'Products updated.',
                                 result,
                             )
                     "
@@ -222,7 +222,7 @@ function openSyncResult(
                         (result) =>
                             openSyncResult(
                                 'Sync orders result',
-                                'Sync orders done',
+                                'Orders synced.',
                                 result,
                             )
                     "
