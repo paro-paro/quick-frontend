@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useAuthUser, useNuxtApp } from "#imports";
+import { useAuthUser, useNuxtApp, useUiSettings } from "#imports";
 import { useQueryClient } from "@tanstack/vue-query";
 import { signOut } from "firebase/auth";
 
@@ -7,6 +7,7 @@ import type { NavigationMenuItem } from "@nuxt/ui";
 
 const { $firebaseAuth } = useNuxtApp();
 const { user } = useAuthUser();
+const { showProductIds, setShowProductIds } = useUiSettings();
 const queryClient = useQueryClient();
 
 async function onSignOut() {
@@ -31,6 +32,16 @@ const items: NavigationMenuItem[] = [
             </template>
 
             <UNavigationMenu :items="items" orientation="vertical" />
+
+            <!-- global UI settings -->
+            <div class="mt-auto flex items-center justify-between gap-2">
+                <span class="text-xs text-muted">Show product IDs</span>
+                <USwitch
+                    :model-value="showProductIds"
+                    size="sm"
+                    @update:model-value="setShowProductIds"
+                />
+            </div>
 
             <template #footer>
                 <div class="flex items-center gap-2 w-full min-w-0">

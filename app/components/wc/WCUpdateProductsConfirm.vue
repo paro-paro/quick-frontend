@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, useNuxtApp, useToast } from "#imports";
+import { computed, ref, useNuxtApp, useToast, useUiSettings } from "#imports";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
 
 import type {
@@ -18,6 +18,7 @@ const emit = defineEmits<{
 const { $api } = useNuxtApp();
 const queryClient = useQueryClient();
 const toast = useToast();
+const { showProductIds } = useUiSettings();
 
 const { data: preview, isPending: isPreviewLoading } = useQuery({
     queryKey: ["woocommerce-products-import-preview"],
@@ -90,17 +91,108 @@ const tabContent = computed(() =>
               title: "Will be updated",
               description:
                   "These POD products were created from WooCommerce. All their fields (ref, name, price, tax, categories, etc.) will be overwritten with the current WooCommerce values.",
+              hint: null,
               rows: updatableRows.value,
               emptyText: "No products created from WooCommerce.",
           }
         : {
               title: "Will be skipped",
               description:
-                  "These WooCommerce products are mapped to pre-existing POD products. POD stays as their source of truth, so the update leaves them untouched.",
+                  "These WooCommerce products are mapped to pre-existing POD products. POD remains their source of truth, so the update leaves them untouched.",
+              hint: "From this view you can update a mapping by selecting a different POD product from the dropdown, or delete it with the X button. Changes are applied immediately.",
               rows: skippedRows.value,
               emptyText: "No products mapped to existing POD products.",
           },
 );
+
+// --- Re-map (mapped rows only) ---
+
+// POD ids already claimed by a mapping — excluded as re-map targets (a row keeps its own pick)
+const mappedPodIds = computed<Set<number>>(
+    () => new Set((preview.value?.mappings ?? []).map((m) => m.pod_product_id)),
+);
+
+function podOptionsForRow(currentPodId: number) {
+    return (preview.value?.pod_products ?? [])
+        .filter(
+            (p) =>
+                p.pod_product_id === currentPodId ||
+                !mappedPodIds.value.has(p.pod_product_id),
+        )
+        .map((p) => ({
+            label: p.format ? `${p.name} ${p.format}` : p.name,
+            name: p.name,
+            format: p.format,
+            value: p.pod_product_id,
+        }));
+}
+
+// USelectMenu emits update:model-value even when re-selecting the current item — skip those
+function onRemap(
+    row: { wc_product_id: number; pod_product_id: number },
+    podProductId: number,
+) {
+    if (podProductId === row.pod_product_id) return;
+    remapProduct({
+        wc_product_id: row.wc_product_id,
+        pod_product_id: podProductId,
+    });
+}
+
+const { mutate: remapProduct, isPending: isRemapping } = useMutation({
+    mutationFn: async (payload: {
+        wc_product_id: number;
+        pod_product_id: number;
+    }) => {
+        await $api(`/woocommerce/products/mappings/${payload.wc_product_id}`, {
+            method: "PUT",
+            body: { pod_product_id: payload.pod_product_id },
+            headers: { "Content-Type": "application/json" },
+        });
+    },
+    onSuccess: () => {
+        queryClient.invalidateQueries({
+            queryKey: ["woocommerce-products-import-preview"],
+        });
+        toast.add({
+            title: "Mapping updated.",
+            color: "success",
+            icon: "i-lucide-check-circle-2",
+        });
+    },
+    onError: (error) => {
+        toast.add({
+            title: getApiErrorMessage(error),
+            color: "error",
+            icon: "i-lucide-alert-triangle",
+        });
+    },
+});
+
+const { mutate: unmapProduct, isPending: isUnmapping } = useMutation({
+    mutationFn: async (wcProductId: number) => {
+        await $api(`/woocommerce/products/mappings/${wcProductId}`, {
+            method: "DELETE",
+        });
+    },
+    onSuccess: () => {
+        queryClient.invalidateQueries({
+            queryKey: ["woocommerce-products-import-preview"],
+        });
+        toast.add({
+            title: "Mapping deleted.",
+            color: "success",
+            icon: "i-lucide-check-circle-2",
+        });
+    },
+    onError: (error) => {
+        toast.add({
+            title: getApiErrorMessage(error),
+            color: "error",
+            icon: "i-lucide-alert-triangle",
+        });
+    },
+});
 
 const { mutate: refreshMappedProducts, isPending: isRefreshing } = useMutation({
     mutationFn: async () => {
@@ -175,6 +267,12 @@ const { mutate: refreshMappedProducts, isPending: isRefreshing } = useMutation({
                     <p class="text-sm text-muted">
                         {{ tabContent.description }}
                     </p>
+                    <template v-if="tabContent.hint">
+                        <USeparator class="my-2" />
+                        <p class="text-sm text-muted">
+                            {{ tabContent.hint }}
+                        </p>
+                    </template>
                 </div>
 
                 <UAlert
@@ -206,15 +304,87 @@ const { mutate: refreshMappedProducts, isPending: isRefreshing } = useMutation({
                         >
                             <div class="min-w-0 flex-1">
                                 <div class="truncate">{{ row.wc_name }}</div>
-                                <div class="text-xs text-muted">
-                                    WC ID: {{ row.wc_product_id }}
+                                <div
+                                    v-if="showProductIds"
+                                    class="text-xs text-muted"
+                                >
+                                    ID: {{ row.wc_product_id }}
                                 </div>
                             </div>
                             <UIcon
                                 name="i-lucide-arrow-right"
                                 class="size-4 shrink-0 text-muted"
                             />
-                            <div class="min-w-0 flex-1">
+                            <!-- Mapped rows: the POD target is editable — selecting re-maps
+                                 immediately, the X unmaps (WC product becomes importable again) -->
+                            <div
+                                v-if="row.pod_product_source === 'POD'"
+                                class="min-w-0 flex-1"
+                            >
+                                <div class="flex items-center gap-1">
+                                    <USelectMenu
+                                        :model-value="row.pod_product_id"
+                                        :items="
+                                            podOptionsForRow(
+                                                row.pod_product_id,
+                                            )
+                                        "
+                                        value-key="value"
+                                        :disabled="isRemapping || isUnmapping"
+                                        class="flex-1"
+                                        @update:model-value="
+                                            onRemap(row, $event as number)
+                                        "
+                                    >
+                                    <template #default>
+                                        <span>
+                                            {{ row.pod_name
+                                            }}<span
+                                                v-if="row.pod_format"
+                                                class="ml-2 text-xs text-muted"
+                                                >{{ row.pod_format }}</span
+                                            >
+                                        </span>
+                                    </template>
+                                    <template #item-label="{ item }">
+                                        <span>{{
+                                            (item as { name: string }).name
+                                        }}</span>
+                                        <span
+                                            v-if="
+                                                (item as { format: string })
+                                                    .format
+                                            "
+                                            class="ml-2 text-xs text-muted"
+                                        >
+                                            {{
+                                                (item as { format: string })
+                                                    .format
+                                            }}
+                                        </span>
+                                    </template>
+                                    </USelectMenu>
+                                    <UButton
+                                        color="neutral"
+                                        variant="ghost"
+                                        size="xs"
+                                        icon="i-lucide-x"
+                                        aria-label="Unmap"
+                                        :disabled="isRemapping || isUnmapping"
+                                        @click="
+                                            unmapProduct(row.wc_product_id)
+                                        "
+                                    />
+                                </div>
+                                <div
+                                    v-if="showProductIds"
+                                    class="mt-1 text-xs text-muted"
+                                >
+                                    ID: {{ row.pod_product_id }}
+                                </div>
+                            </div>
+
+                            <div v-else class="min-w-0 flex-1">
                                 <div class="truncate">
                                     {{ row.pod_name }}
                                     <span
@@ -223,8 +393,11 @@ const { mutate: refreshMappedProducts, isPending: isRefreshing } = useMutation({
                                         >{{ row.pod_format }}</span
                                     >
                                 </div>
-                                <div class="text-xs text-muted">
-                                    POD ID: {{ row.pod_product_id }}
+                                <div
+                                    v-if="showProductIds"
+                                    class="text-xs text-muted"
+                                >
+                                    ID: {{ row.pod_product_id }}
                                 </div>
                             </div>
                         </li>
@@ -240,11 +413,11 @@ const { mutate: refreshMappedProducts, isPending: isRefreshing } = useMutation({
                         @click="open = false"
                     />
                     <UButton
+                        v-if="activeTab === 'created'"
                         color="primary"
                         :loading="isRefreshing"
                         :disabled="!updatableRows.length"
                         label="Update"
-                        icon="i-lucide-refresh-cw"
                         @click="refreshMappedProducts()"
                     />
                 </div>

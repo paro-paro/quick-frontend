@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, useNuxtApp, useToast, watch } from "#imports";
+import { computed, ref, useNuxtApp, useToast, useUiSettings, watch } from "#imports";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
 
 import type {
@@ -20,6 +20,7 @@ const emit = defineEmits<{
 const { $api } = useNuxtApp();
 const queryClient = useQueryClient();
 const toast = useToast();
+const { showProductIds } = useUiSettings();
 
 const EMPTY_STATE_HINT =
     'Use the "Update products" button to pull the latest data for products you\'ve already imported.';
@@ -323,16 +324,17 @@ function onConfirm() {
                                     <div class="truncate text-sm font-medium">
                                         {{ wc.name }}
                                     </div>
-                                    <div class="text-xs text-muted">
-                                        WC ID: {{ wc.wc_product_id }}
+                                    <div
+                                        v-if="showProductIds"
+                                        class="text-xs text-muted"
+                                    >
+                                        ID: {{ wc.wc_product_id }}
                                     </div>
                                 </div>
 
-                                <div
-                                    class="flex w-64 items-center gap-1"
-                                    @click.stop
-                                >
-                                    <USelectMenu
+                                <div class="w-64" @click.stop>
+                                    <div class="flex items-center gap-1">
+                                        <USelectMenu
                                         v-model="
                                             selectedMappings[wc.wc_product_id]
                                         "
@@ -417,6 +419,19 @@ function onConfirm() {
                                         "
                                         @click="clearMapping(wc.wc_product_id)"
                                     />
+                                    </div>
+                                    <div
+                                        v-if="
+                                            showProductIds &&
+                                            selectedMappings[
+                                                wc.wc_product_id
+                                            ] != null
+                                        "
+                                        class="mt-1 text-xs text-muted"
+                                    >
+                                        ID:
+                                        {{ selectedMappings[wc.wc_product_id] }}
+                                    </div>
                                 </div>
                             </li>
                         </ul>
@@ -440,7 +455,7 @@ function onConfirm() {
                             <UButton
                                 type="button"
                                 color="primary"
-                                label="Import products"
+                                label="Import"
                                 :loading="isApplying"
                                 :disabled="!selectedCount"
                                 @click="onConfirm"

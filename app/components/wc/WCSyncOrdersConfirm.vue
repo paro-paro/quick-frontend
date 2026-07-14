@@ -35,7 +35,12 @@ const { data: preview, isPending: isPreviewLoading } = useQuery({
     retry: false,
 });
 
-const orderRows = computed(() => preview.value?.orders ?? []);
+// newest orders first — the run itself still processes oldest-first
+const orderRows = computed(() =>
+    [...(preview.value?.orders ?? [])].sort(
+        (a, b) => b.wc_order_id - a.wc_order_id,
+    ),
+);
 
 // skips don't touch POD — the run only acts on the other three
 const actionableCount = computed(
@@ -179,7 +184,6 @@ const { mutate: syncOrders, isPending: isSyncing } = useMutation({
                         :loading="isSyncing"
                         :disabled="!actionableCount"
                         label="Sync"
-                        icon="i-lucide-refresh-cw"
                         @click="syncOrders()"
                     />
                 </div>
