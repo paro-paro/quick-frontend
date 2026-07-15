@@ -13,7 +13,11 @@ import { getApiErrorMessage } from "~/utils/api-errors";
 const open = defineModel<boolean>("open", { required: true });
 
 const emit = defineEmits<{
-    (e: "updated", result: WooCommerceUpdateStoreResult): void;
+    (
+        e: "updated",
+        result: WooCommerceUpdateStoreResult,
+        useTaxedOffer: boolean,
+    ): void;
 }>();
 
 const { $api } = useNuxtApp();
@@ -76,7 +80,7 @@ const { mutate: updateStore, isPending: isUpdating } = useMutation({
             queryKey: ["woocommerce-products-import-preview"],
         });
         open.value = false;
-        emit("updated", data);
+        emit("updated", data, useTaxedOffer.value);
     },
     onError: (error) => {
         toast.add({

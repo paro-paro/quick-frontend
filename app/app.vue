@@ -195,10 +195,12 @@ function openSyncResult(
                 <WCUpdateStoreModal
                     v-model:open="isUpdateStoreOpen"
                     @updated="
-                        (result) =>
+                        (result, useTaxedOffer) =>
                             openSyncResult(
                                 'Update store result',
-                                'Store updated.',
+                                useTaxedOffer
+                                    ? 'Store updated with tax catalog.'
+                                    : 'Store updated with untaxed catalog.',
                                 result,
                             )
                     "
