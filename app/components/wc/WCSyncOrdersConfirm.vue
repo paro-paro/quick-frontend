@@ -133,6 +133,7 @@ const { mutate: syncOrders, isPending: isSyncing } = useMutation({
     <UModal
         v-model:open="open"
         title="Sync orders"
+        description="Bring your WooCommerce orders into POD."
         :ui="{ content: 'max-w-2xl' }"
     >
         <template #body>
@@ -146,7 +147,7 @@ const { mutate: syncOrders, isPending: isSyncing } = useMutation({
 
             <div v-else-if="!orderRows.length" class="flex flex-col gap-4">
                 <UAlert
-                    color="info"
+                    color="neutral"
                     variant="soft"
                     icon="i-lucide-info"
                     description="No orders found on the WooCommerce store."
@@ -164,7 +165,6 @@ const { mutate: syncOrders, isPending: isSyncing } = useMutation({
 
             <div v-else class="flex flex-col gap-6">
                 <div class="space-y-2 text-sm text-muted">
-                    <p>Syncing brings your WooCommerce orders into POD.</p>
                     <p>
                         From this view you can review the action planned for
                         each order before running it.

@@ -356,7 +356,8 @@ const { mutate: refreshMappedProducts, isPending: isRefreshing } = useMutation({
 <template>
     <UModal
         v-model:open="open"
-        title="Update products"
+        title="Pull updates"
+        description="Pull your WooCommerce product updates into POD."
         :ui="{ content: 'max-w-2xl' }"
     >
         <template #body>

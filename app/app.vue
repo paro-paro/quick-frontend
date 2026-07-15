@@ -40,6 +40,7 @@ const isUpdateOpen = ref(false);
 const isDeleteConfirmOpen = ref(false);
 const isImportOpen = ref(false);
 const isUpdateProductsConfirmOpen = ref(false);
+const isPushUpdatesOpen = ref(false);
 const isSyncOrdersConfirmOpen = ref(false);
 
 // --- Sync result dialog (shared by import / refresh / order sync) ---
@@ -155,13 +156,24 @@ function openSyncResult(
                                     :disabled="!connexion?.is_active"
                                     @click="isImportOpen = true"
                                 />
+                                <!-- Hidden (not removed): the WC->POD pull flow is parked while
+                                     the feature moves to a full POD->WC push. Keep it just in case. -->
+                                <UButton
+                                    v-if="false"
+                                    color="primary"
+                                    variant="soft"
+                                    label="Pull updates"
+                                    icon="i-lucide-arrow-down"
+                                    :disabled="!connexion?.is_active"
+                                    @click="isUpdateProductsConfirmOpen = true"
+                                />
                                 <UButton
                                     color="primary"
                                     variant="soft"
-                                    label="Update products"
-                                    icon="i-lucide-refresh-cw"
+                                    label="Push updates"
+                                    icon="i-lucide-arrow-up"
                                     :disabled="!connexion?.is_active"
-                                    @click="isUpdateProductsConfirmOpen = true"
+                                    @click="isPushUpdatesOpen = true"
                                 />
                             </div>
                         </div>
@@ -191,6 +203,18 @@ function openSyncResult(
                 />
 
                 <WCConnectionDeleteConfirm v-model:open="isDeleteConfirmOpen" />
+
+                <WCPushUpdatesModal
+                    v-model:open="isPushUpdatesOpen"
+                    @pushed="
+                        (result) =>
+                            openSyncResult(
+                                'Push updates result',
+                                'Updates pushed.',
+                                result,
+                            )
+                    "
+                />
 
                 <WCImportProductsModal
                     v-model:open="isImportOpen"

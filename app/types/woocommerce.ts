@@ -70,13 +70,15 @@ export interface WooCommerceSyncOrdersResult {
     errors: string[];
 }
 
-/** Response from PUT /woocommerce/products/push.
+/** Response from PUT /woocommerce/products/push (full reconcile: create/update/deactivate).
  *
- * Every field is a list of per-row messages — one entry per mapped product processed,
+ * Every field is a list of per-row messages — one entry per product processed,
  * describing what happened. Counts are derived from the list lengths.
  */
 export interface WooCommercePushProductsResult {
-    pushed: string[];
+    created: string[];
+    updated: string[];
+    deactivated: string[];
     skipped: string[];
     errors: string[];
 }
@@ -119,6 +121,25 @@ export interface WooCommerceImportProductsPreview {
     wc_products: WCImportableProduct[];
     pod_products: PODProductPreview[];
     mappings: WCProductMappingPreview[];
+}
+
+// --- Push updates flow ---
+
+export type WCPushProductAction = "create" | "update" | "deactivate";
+
+export interface WCPushProductPreview {
+    pod_product_id: number;
+    pod_product_name: string;
+    pod_product_format: string;
+    /** null for products not yet created on the store. */
+    wc_product_id: number | null;
+    /** Resolved from the store; falls back to the WC id. Null for create rows. */
+    wc_product_name: string | null;
+    action: WCPushProductAction;
+}
+
+export interface WooCommercePushProductsPreview {
+    products: WCPushProductPreview[];
 }
 
 // --- Sync orders flow ---

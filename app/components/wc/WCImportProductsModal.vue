@@ -22,8 +22,6 @@ const queryClient = useQueryClient();
 const toast = useToast();
 const { showProductIds } = useUiSettings();
 
-const EMPTY_STATE_HINT =
-    "Use the “Update products” button to update your already imported products.";
 
 const IMPORT_HINT =
     "For each WooCommerce product, you can choose to create a new POD product by leaving the dropdown blank, or map it to an existing one by selecting it from the dropdown.";
@@ -245,12 +243,11 @@ function onConfirm() {
             <div v-else-if="syncPreview" class="flex flex-col gap-4">
                 <!-- Empty state: no importable products, only a Close button. -->
                 <template v-if="!importableWcProducts.length">
-                    <p class="text-sm text-muted">No new products to import.</p>
                     <UAlert
                         color="neutral"
                         variant="soft"
                         icon="i-lucide-info"
-                        :description="EMPTY_STATE_HINT"
+                        description="No new products found on the WooCommerce store."
                     />
                     <div class="flex justify-end">
                         <UButton
