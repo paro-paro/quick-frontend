@@ -247,7 +247,7 @@ function onConfirm() {
                         color="neutral"
                         variant="soft"
                         icon="i-lucide-info"
-                        description="No new products found on the WooCommerce store."
+                        description="No new products found."
                     />
                     <div class="flex justify-end">
                         <UButton

@@ -150,7 +150,7 @@ const { mutate: syncOrders, isPending: isSyncing } = useMutation({
                     color="neutral"
                     variant="soft"
                     icon="i-lucide-info"
-                    description="No orders found on the WooCommerce store."
+                    description="No orders found."
                 />
                 <div class="flex justify-end">
                     <UButton

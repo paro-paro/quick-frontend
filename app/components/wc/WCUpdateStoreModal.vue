@@ -1,19 +1,19 @@
 <script setup lang="ts">
-import { computed, useNuxtApp, useToast, useUiSettings } from "#imports";
+import { computed, ref, useNuxtApp, useToast, useUiSettings } from "#imports";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
 
 import type {
     ApiResponse,
-    WCPushProductAction,
-    WooCommercePushProductsPreview,
-    WooCommercePushProductsResult,
+    WCUpdateStoreAction,
+    WooCommerceUpdateStorePreview,
+    WooCommerceUpdateStoreResult,
 } from "~/types/woocommerce";
 import { getApiErrorMessage } from "~/utils/api-errors";
 
 const open = defineModel<boolean>("open", { required: true });
 
 const emit = defineEmits<{
-    (e: "pushed", result: WooCommercePushProductsResult): void;
+    (e: "updated", result: WooCommerceUpdateStoreResult): void;
 }>();
 
 const { $api } = useNuxtApp();
@@ -21,12 +21,16 @@ const queryClient = useQueryClient();
 const toast = useToast();
 const { showProductIds } = useUiSettings();
 
+// Selects which WC offer of the tax pair drives the run (and its preview).
+const useTaxedOffer = ref(false);
+
 const { data: preview, isPending: isPreviewLoading } = useQuery({
-    queryKey: ["woocommerce-products-push-preview"],
+    queryKey: ["woocommerce-update-store-preview", useTaxedOffer],
     queryFn: async () => {
         const [res] = await Promise.all([
-            $api<ApiResponse<WooCommercePushProductsPreview>>(
-                "/woocommerce/products/push/preview",
+            $api<ApiResponse<WooCommerceUpdateStorePreview>>(
+                "/woocommerce/update/store/preview",
+                { query: { use_taxed_offer: useTaxedOffer.value } },
             ),
             new Promise((resolve) => setTimeout(resolve, 320)),
         ]);
@@ -39,37 +43,40 @@ const { data: preview, isPending: isPreviewLoading } = useQuery({
 // The POD WooCommerce offer dictates what the user sells on the store — rows come
 // pre-bucketed from the preview: create (new on WC), update (overwrite WC values),
 // deactivate (product left the offer, drafted on WC).
-// No selection: the push always runs on every row, keeping POD and WC in 1:1 parity.
+// No selection: the run always covers every row, keeping POD and WC in 1:1 parity.
 const productRows = computed(() => preview.value?.products ?? []);
 
 const ACTION_BADGES: Record<
-    WCPushProductAction,
+    WCUpdateStoreAction,
     { label: string; color: "success" | "info" | "neutral" }
 > = {
     create: { label: "Create", color: "success" },
     update: { label: "Update", color: "info" },
+    activate: { label: "Activate + Update", color: "success" },
     deactivate: { label: "Deactivate", color: "neutral" },
 };
 
-const { mutate: pushProducts, isPending: isPushing } = useMutation({
+const { mutate: updateStore, isPending: isUpdating } = useMutation({
     mutationFn: async () => {
-        const res = await $api<ApiResponse<WooCommercePushProductsResult>>(
-            "/woocommerce/products/push",
+        const res = await $api<ApiResponse<WooCommerceUpdateStoreResult>>(
+            "/woocommerce/update/store",
             {
                 method: "PUT",
+                body: { use_taxed_offer: useTaxedOffer.value },
+                headers: { "Content-Type": "application/json" },
             },
         );
         return res.data;
     },
     onSuccess: (data) => {
         queryClient.invalidateQueries({
-            queryKey: ["woocommerce-products-push-preview"],
+            queryKey: ["woocommerce-update-store-preview"],
         });
         queryClient.invalidateQueries({
             queryKey: ["woocommerce-products-import-preview"],
         });
         open.value = false;
-        emit("pushed", data);
+        emit("updated", data);
     },
     onError: (error) => {
         toast.add({
@@ -84,8 +91,8 @@ const { mutate: pushProducts, isPending: isPushing } = useMutation({
 <template>
     <UModal
         v-model:open="open"
-        title="Push updates"
-        description="Update your WooCommerce store from POD."
+        title="Update store"
+        description="Update your WooCommerce store from your POD catalog."
         :ui="{ content: 'max-w-2xl' }"
     >
         <template #body>
@@ -102,9 +109,13 @@ const { mutate: pushProducts, isPending: isPushing } = useMutation({
                     color="neutral"
                     variant="soft"
                     icon="i-lucide-info"
-                    description="No products found in the WooCommerce catalog. Nothing to push."
+                    description="No products found in your catalog."
                 />
-                <div class="flex justify-end">
+                <div class="flex items-center justify-between gap-2">
+                    <UCheckbox
+                        v-model="useTaxedOffer"
+                        label="Use taxed catalog"
+                    />
                     <UButton
                         type="button"
                         color="neutral"
@@ -117,16 +128,14 @@ const { mutate: pushProducts, isPending: isPushing } = useMutation({
 
             <div v-else class="flex flex-col gap-6">
                 <p class="text-sm text-muted">
-                    Pushing syncs your WooCommerce store with your WooCommerce
-                    catalog.
-                    The table below summarizes the changes that will be applied
-                    to your store.
+                    The table below summarizes the per-product changes that
+                    will be applied to your store.
                 </p>
 
                 <div class="rounded-md border border-default overflow-hidden">
                     <!-- header and rows share the same grid template so the columns always align -->
                     <div
-                        class="grid grid-cols-[1fr_1rem_1fr_5rem] items-center gap-3 border-b border-default bg-elevated/40 px-3 py-2 text-xs font-medium uppercase text-muted"
+                        class="grid grid-cols-[1fr_1rem_1fr_9rem] items-center gap-3 border-b border-default bg-elevated/40 px-3 py-2 text-xs font-medium uppercase text-muted"
                     >
                         <div>pod</div>
                         <div></div>
@@ -139,7 +148,7 @@ const { mutate: pushProducts, isPending: isPushing } = useMutation({
                         <li
                             v-for="row in productRows"
                             :key="row.pod_product_id"
-                            class="grid grid-cols-[1fr_1rem_1fr_5rem] items-center gap-3 px-3 py-2 text-sm"
+                            class="grid grid-cols-[1fr_1rem_1fr_9rem] items-center gap-3 px-3 py-2 text-sm"
                         >
                             <div class="min-w-0">
                                 <div class="truncate">
@@ -187,20 +196,26 @@ const { mutate: pushProducts, isPending: isPushing } = useMutation({
                     </ul>
                 </div>
 
-                <div class="flex justify-end gap-2">
-                    <UButton
-                        type="button"
-                        color="neutral"
-                        variant="ghost"
-                        label="Cancel"
-                        @click="open = false"
+                <div class="flex items-center justify-between gap-2">
+                    <UCheckbox
+                        v-model="useTaxedOffer"
+                        label="Use taxed catalog"
                     />
-                    <UButton
-                        color="primary"
-                        :loading="isPushing"
-                        label="Push"
-                        @click="pushProducts()"
-                    />
+                    <div class="flex gap-2">
+                        <UButton
+                            type="button"
+                            color="neutral"
+                            variant="ghost"
+                            label="Cancel"
+                            @click="open = false"
+                        />
+                        <UButton
+                            color="primary"
+                            :loading="isUpdating"
+                            label="Update"
+                            @click="updateStore()"
+                        />
+                    </div>
                 </div>
             </div>
         </template>

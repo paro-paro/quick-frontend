@@ -46,17 +46,6 @@ export interface WooCommerceImportProductsApplyResult {
     errors: string[];
 }
 
-/** Response from PUT /woocommerce/products/update.
- *
- * Every field is a list of per-row messages — one entry per WC product processed,
- * describing what happened. Counts are derived from the list lengths.
- */
-export interface WooCommerceUpdateProductsResult {
-    updated: string[];
-    skipped: string[];
-    errors: string[];
-}
-
 /** Response from POST /woocommerce/orders/sync.
  *
  * Every field is a list of per-row messages — one entry per WC order processed,
@@ -75,7 +64,7 @@ export interface WooCommerceSyncOrdersResult {
  * Every field is a list of per-row messages — one entry per product processed,
  * describing what happened. Counts are derived from the list lengths.
  */
-export interface WooCommercePushProductsResult {
+export interface WooCommerceUpdateStoreResult {
     created: string[];
     updated: string[];
     deactivated: string[];
@@ -86,8 +75,7 @@ export interface WooCommercePushProductsResult {
 /** Union used by the shared result dialog. */
 export type WooCommerceSyncResultAny =
     | WooCommerceImportProductsApplyResult
-    | WooCommerceUpdateProductsResult
-    | WooCommercePushProductsResult
+    | WooCommerceUpdateStoreResult
     | WooCommerceSyncOrdersResult;
 
 // --- Import flow ---
@@ -103,10 +91,6 @@ export interface PODProductPreview {
     format: string;
 }
 
-/** WC = POD product created from WooCommerce (update sync overwrites it);
- *  POD = mapped to a pre-existing POD product (update sync skips it). */
-export type PODProductSource = "POD" | "WC";
-
 export interface WCProductMappingPreview {
     wc_product_id: number;
     /** Resolved from the unfiltered WC list; falls back to the WC id. */
@@ -114,7 +98,6 @@ export interface WCProductMappingPreview {
     /** False when the WC product is disabled or deleted on the store. */
     wc_product_active: boolean;
     pod_product_id: number;
-    pod_product_source: PODProductSource;
 }
 
 export interface WooCommerceImportProductsPreview {
@@ -125,9 +108,9 @@ export interface WooCommerceImportProductsPreview {
 
 // --- Push updates flow ---
 
-export type WCPushProductAction = "create" | "update" | "deactivate";
+export type WCUpdateStoreAction = "create" | "update" | "activate" | "deactivate";
 
-export interface WCPushProductPreview {
+export interface WCUpdateStoreProductPreview {
     pod_product_id: number;
     pod_product_name: string;
     pod_product_format: string;
@@ -135,11 +118,11 @@ export interface WCPushProductPreview {
     wc_product_id: number | null;
     /** Resolved from the store; falls back to the WC id. Null for create rows. */
     wc_product_name: string | null;
-    action: WCPushProductAction;
+    action: WCUpdateStoreAction;
 }
 
-export interface WooCommercePushProductsPreview {
-    products: WCPushProductPreview[];
+export interface WooCommerceUpdateStorePreview {
+    products: WCUpdateStoreProductPreview[];
 }
 
 // --- Sync orders flow ---
