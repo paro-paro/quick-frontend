@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, useAuthUser, useNuxtApp, useToast } from "#imports";
 import { useQuery } from "@tanstack/vue-query";
+import { VueQueryDevtools } from "@tanstack/vue-query-devtools";
 
 import type {
     ApiResponse,
@@ -66,7 +67,6 @@ function openSyncResult(
             : "i-lucide-check-circle-2",
     });
 }
-
 </script>
 
 <template>
@@ -199,7 +199,7 @@ function openSyncResult(
                             openSyncResult(
                                 'Update store result',
                                 useTaxedOffer
-                                    ? 'Store updated with tax catalog.'
+                                    ? 'Store updated with taxed catalog.'
                                     : 'Store updated with untaxed catalog.',
                                 result,
                             )
@@ -238,4 +238,6 @@ function openSyncResult(
             </div>
         </NuxtLayout>
     </UApp>
+
+    <VueQueryDevtools />
 </template>

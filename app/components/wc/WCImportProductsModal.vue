@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { computed, ref, useNuxtApp, useToast, useUiSettings, watch } from "#imports";
+import {
+    computed,
+    ref,
+    useNuxtApp,
+    useToast,
+    useUiSettings,
+    watch,
+} from "#imports";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
 
 import type {
@@ -22,12 +29,9 @@ const queryClient = useQueryClient();
 const toast = useToast();
 const { showProductIds } = useUiSettings();
 
-
 const IMPORT_HINT =
     "For each WooCommerce product, you can choose to create a new POD product by leaving the dropdown blank, or map it to an existing one by selecting it from the dropdown.";
 
-// wc_product_id -> whether the user wants to import this one
-const selectedForImport = ref<Set<number>>(new Set());
 // wc_product_id -> pod_product_id chosen for the "map" action (null = "create")
 const selectedMappings = ref<Record<number, number | null>>({});
 
@@ -71,51 +75,11 @@ const alreadyMappedPodIds = computed<Set<number>>(
         ),
 );
 
-// Pre-check every importable row when preview lands. User opts out per-row.
+// Reset the per-row POD picks when a fresh preview lands.
 watch(syncPreview, (data) => {
     if (!data) return;
-    const mapped = new Set(data.mappings.map((m) => m.wc_product_id));
-    selectedForImport.value = new Set(
-        data.wc_products
-            .filter((p) => !mapped.has(p.wc_product_id))
-            .map((p) => p.wc_product_id),
-    );
     selectedMappings.value = {};
 });
-
-const allImportableSelected = computed(
-    () =>
-        !!importableWcProducts.value.length &&
-        importableWcProducts.value.every((p) =>
-            selectedForImport.value.has(p.wc_product_id),
-        ),
-);
-const someImportableSelected = computed(() => {
-    const selected = importableWcProducts.value.filter((p) =>
-        selectedForImport.value.has(p.wc_product_id),
-    ).length;
-    return selected > 0 && selected < importableWcProducts.value.length;
-});
-
-function toggleAll(checked: boolean) {
-    const next = new Set(selectedForImport.value);
-    for (const p of importableWcProducts.value) {
-        if (checked) next.add(p.wc_product_id);
-        else next.delete(p.wc_product_id);
-    }
-    selectedForImport.value = next;
-}
-
-function toggleOne(wcId: number, checked: boolean) {
-    const next = new Set(selectedForImport.value);
-    if (checked) next.add(wcId);
-    else {
-        next.delete(wcId);
-        // Deselecting a row frees its POD pick.
-        selectedMappings.value = { ...selectedMappings.value, [wcId]: null };
-    }
-    selectedForImport.value = next;
-}
 
 function clearMapping(wcId: number) {
     selectedMappings.value = { ...selectedMappings.value, [wcId]: null };
@@ -196,13 +160,16 @@ const { mutate: applySyncProducts, isPending: isApplying } = useMutation({
     },
 });
 
-const selectedCount = computed(() => selectedForImport.value.size);
+const importCountLabel = computed(() => {
+    const count = importableWcProducts.value.length;
+    return `${count} ${count === 1 ? "product" : "products"} will be imported`;
+});
 
+// Every importable WC product is imported so POD and the store stay in sync.
 function onConfirm() {
     const items: WooCommerceImportProductsApplyItem[] = [];
     for (const wc of importableWcProducts.value) {
         const wcId = wc.wc_product_id;
-        if (!selectedForImport.value.has(wcId)) continue;
         const podId = selectedMappings.value[wcId];
         if (podId != null) {
             items.push({
@@ -234,11 +201,22 @@ function onConfirm() {
                 Loading products...
             </div>
 
-            <UAlert
+            <div v-else-if="isPreviewError" class="flex flex-col gap-4">
+                <UAlert
+                    color="error"
+                    variant="soft"
+                    icon="i-lucide-alert-triangle"
+                    :description="
+                        previewError?.message || 'Failed to load preview.'
+                    "
+                />
+            </div>
+
+            <!-- <UAlert
                 v-else-if="isPreviewError"
                 color="error"
                 :title="previewError?.message || 'Failed to load preview.'"
-            />
+            /> -->
 
             <div v-else-if="syncPreview" class="flex flex-col gap-4">
                 <!-- Empty state: no importable products, only a Close button. -->
@@ -247,7 +225,7 @@ function onConfirm() {
                         color="neutral"
                         variant="soft"
                         icon="i-lucide-info"
-                        description="No new products found."
+                        description="No new active products found on your WooCommerce store."
                     />
                     <div class="flex justify-end">
                         <UButton
@@ -269,17 +247,10 @@ function onConfirm() {
                         <div
                             class="flex items-center gap-4 px-3 py-2 border-b border-default bg-elevated/50"
                         >
-                            <UCheckbox
-                                :model-value="allImportableSelected"
-                                :indeterminate="someImportableSelected"
-                                @update:model-value="
-                                    toggleAll($event as boolean)
-                                "
-                            />
                             <div
                                 class="flex-1 text-xs font-medium uppercase text-muted"
                             >
-                                WC product
+                                WooCommerce product
                             </div>
                             <div
                                 class="w-64 text-xs font-medium uppercase text-muted"
@@ -294,29 +265,8 @@ function onConfirm() {
                             <li
                                 v-for="wc in importableWcProducts"
                                 :key="wc.wc_product_id"
-                                class="flex items-center gap-4 p-3 cursor-pointer hover:bg-elevated/40"
-                                @click="
-                                    toggleOne(
-                                        wc.wc_product_id,
-                                        !selectedForImport.has(
-                                            wc.wc_product_id,
-                                        ),
-                                    )
-                                "
+                                class="flex items-center gap-4 p-3"
                             >
-                                <UCheckbox
-                                    :model-value="
-                                        selectedForImport.has(wc.wc_product_id)
-                                    "
-                                    @click.stop
-                                    @update:model-value="
-                                        toggleOne(
-                                            wc.wc_product_id,
-                                            $event as boolean,
-                                        )
-                                    "
-                                />
-
                                 <div class="min-w-0 flex-1">
                                     <div class="truncate text-sm font-medium">
                                         {{ wc.name }}
@@ -329,93 +279,99 @@ function onConfirm() {
                                     </div>
                                 </div>
 
-                                <div class="w-64" @click.stop>
+                                <div class="w-64">
                                     <div class="flex items-center gap-1">
                                         <USelectMenu
-                                        v-model="
-                                            selectedMappings[wc.wc_product_id]
-                                        "
-                                        :items="
-                                            podOptionsForRow(wc.wc_product_id)
-                                        "
-                                        value-key="value"
-                                        :disabled="
-                                            !selectedForImport.has(
-                                                wc.wc_product_id,
-                                            )
-                                        "
-                                        placeholder="Create new (or map…)"
-                                        class="flex-1"
-                                    >
-                                        <template #default="{ modelValue }">
-                                            <template v-if="modelValue == null">
-                                                <span class="text-dimmed"
-                                                    >Create new (or map…)</span
+                                            v-model="
+                                                selectedMappings[
+                                                    wc.wc_product_id
+                                                ]
+                                            "
+                                            :items="
+                                                podOptionsForRow(
+                                                    wc.wc_product_id,
+                                                )
+                                            "
+                                            value-key="value"
+                                            placeholder="Create new (or map…)"
+                                            class="flex-1"
+                                        >
+                                            <template #default="{ modelValue }">
+                                                <template
+                                                    v-if="modelValue == null"
                                                 >
-                                            </template>
-                                            <template v-else>
-                                                <!-- single inline parent so name + format share a text baseline
-                                                     (as flex children they'd be box-centered instead) -->
-                                                <span>
-                                                    {{
-                                                        podInfoById.get(
-                                                            modelValue as number,
-                                                        )?.name
-                                                    }}<span
-                                                        v-if="
-                                                            podInfoById.get(
-                                                                modelValue as number,
-                                                            )?.format
-                                                        "
-                                                        class="ml-2 text-xs text-muted"
-                                                        >{{
-                                                            podInfoById.get(
-                                                                modelValue as number,
-                                                            )?.format
-                                                        }}</span
+                                                    <span class="text-dimmed"
+                                                        >Create new (or
+                                                        map…)</span
                                                     >
+                                                </template>
+                                                <template v-else>
+                                                    <!-- single inline parent so name + format share a text baseline
+                                                     (as flex children they'd be box-centered instead) -->
+                                                    <span>
+                                                        {{
+                                                            podInfoById.get(
+                                                                modelValue as number,
+                                                            )?.name
+                                                        }}<span
+                                                            v-if="
+                                                                podInfoById.get(
+                                                                    modelValue as number,
+                                                                )?.format
+                                                            "
+                                                            class="ml-2 text-xs text-muted"
+                                                            >{{
+                                                                podInfoById.get(
+                                                                    modelValue as number,
+                                                                )?.format
+                                                            }}</span
+                                                        >
+                                                    </span>
+                                                </template>
+                                            </template>
+                                            <template #item-label="{ item }">
+                                                <span>{{
+                                                    (item as { name: string })
+                                                        .name
+                                                }}</span>
+                                                <span
+                                                    v-if="
+                                                        (
+                                                            item as {
+                                                                format: string;
+                                                            }
+                                                        ).format
+                                                    "
+                                                    class="ml-2 text-xs text-muted"
+                                                >
+                                                    {{
+                                                        (
+                                                            item as {
+                                                                format: string;
+                                                            }
+                                                        ).format
+                                                    }}
                                                 </span>
                                             </template>
-                                        </template>
-                                        <template #item-label="{ item }">
-                                            <span>{{
-                                                (item as { name: string }).name
-                                            }}</span>
-                                            <span
-                                                v-if="
-                                                    (item as { format: string })
-                                                        .format
-                                                "
-                                                class="ml-2 text-xs text-muted"
-                                            >
-                                                {{
-                                                    (item as { format: string })
-                                                        .format
-                                                }}
-                                            </span>
-                                        </template>
-                                        <template #empty>
-                                            No POD products available
-                                        </template>
-                                    </USelectMenu>
-                                    <UButton
-                                        v-if="
-                                            selectedMappings[
-                                                wc.wc_product_id
-                                            ] != null
-                                        "
-                                        color="neutral"
-                                        variant="ghost"
-                                        size="xs"
-                                        icon="i-lucide-x"
-                                        aria-label="Clear mapping"
-                                        :disabled="
-                                            !selectedForImport.has(
-                                                wc.wc_product_id,
-                                            )
-                                        "
-                                        @click="clearMapping(wc.wc_product_id)"
-                                    />
+                                            <template #empty>
+                                                No POD products available
+                                            </template>
+                                        </USelectMenu>
+                                        <UButton
+                                            v-if="
+                                                selectedMappings[
+                                                    wc.wc_product_id
+                                                ] != null
+                                            "
+                                            color="neutral"
+                                            variant="ghost"
+                                            size="xs"
+                                            icon="i-lucide-x"
+                                            aria-label="Clear mapping"
+                                            @click="
+                                                clearMapping(wc.wc_product_id)
+                                            "
+                                        />
                                     </div>
                                     <div
                                         v-if="
@@ -436,8 +392,7 @@ function onConfirm() {
 
                     <div class="flex items-center justify-between gap-2">
                         <span class="text-sm text-muted">
-                            {{ selectedCount }} / {{ importableWcProducts.length }}
-                            products selected
+                            {{ importCountLabel }}
                         </span>
 
                         <div class="flex gap-2">
@@ -454,7 +409,6 @@ function onConfirm() {
                                 color="primary"
                                 label="Import"
                                 :loading="isApplying"
-                                :disabled="!selectedCount"
                                 @click="onConfirm"
                             />
                         </div>

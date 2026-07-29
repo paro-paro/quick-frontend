@@ -11,7 +11,7 @@ const props = defineProps<{
 
 // Result shapes (all fields are string[] of per-row messages; counts = lengths):
 // - Import apply result: created / mapped / skipped / errors.
-// - Push updates result: created / updated / deactivated / skipped / errors.
+// - Update store result: created / updated / deactivated / skipped / errors.
 // - Sync orders result: created / updated / deleted / skipped / errors.
 //
 // Each tile shows a count; below the tiles, any non-empty field renders its

@@ -25,10 +25,20 @@ const queryClient = useQueryClient();
 const toast = useToast();
 const { showProductIds } = useUiSettings();
 
-// Selects which WC offer of the tax pair drives the run (and its preview).
-const useTaxedOffer = ref(false);
+// The active tab selects which WC offer of the tax pair drives the run (and its preview).
+const activeTab = ref("untaxed");
+const useTaxedOffer = computed(() => activeTab.value === "taxed");
 
-const { data: preview, isPending: isPreviewLoading } = useQuery({
+const tabItems = [
+    { value: "untaxed", label: "Untaxed catalog" },
+    { value: "taxed", label: "Taxed catalog" },
+];
+
+const {
+    data: preview,
+    isPending: isPreviewLoading,
+    isError,
+} = useQuery({
     queryKey: ["woocommerce-update-store-preview", useTaxedOffer],
     queryFn: async () => {
         const [res] = await Promise.all([
@@ -100,112 +110,120 @@ const { mutate: updateStore, isPending: isUpdating } = useMutation({
         :ui="{ content: 'max-w-2xl' }"
     >
         <template #body>
-            <div
-                v-if="isPreviewLoading"
-                class="flex items-center gap-2 text-sm text-muted"
-            >
-                <UIcon name="i-lucide-loader" class="size-4 animate-spin" />
-                Loading products...
-            </div>
-
-            <div v-else-if="!productRows.length" class="flex flex-col gap-4">
-                <UAlert
-                    color="neutral"
-                    variant="soft"
-                    icon="i-lucide-info"
-                    description="No products found in your catalog."
+            <div class="flex flex-col gap-6">
+                <UTabs
+                    v-model="activeTab"
+                    :items="tabItems"
+                    variant="link"
+                    :content="false"
+                    class="-mt-2"
                 />
-                <div class="flex items-center justify-between gap-2">
-                    <UCheckbox
-                        v-model="useTaxedOffer"
-                        label="Use taxed catalog"
-                    />
-                    <UButton
-                        type="button"
-                        color="neutral"
-                        variant="ghost"
-                        label="Close"
-                        @click="open = false"
-                    />
+
+                <div
+                    v-if="isPreviewLoading"
+                    class="flex items-center gap-2 text-sm text-muted"
+                >
+                    <UIcon name="i-lucide-loader" class="size-4 animate-spin" />
+                    Loading products...
                 </div>
-            </div>
 
-            <div v-else class="flex flex-col gap-6">
-                <p class="text-sm text-muted">
-                    The table below summarizes the per-product changes that
-                    will be applied to your store.
-                </p>
+                <UAlert
+                    v-else-if="isError"
+                    color="error"
+                    variant="soft"
+                    icon="i-lucide-alert-triangle"
+                    description="Failed to load products from your catalog."
+                />
 
-                <div class="rounded-md border border-default overflow-hidden">
-                    <!-- header and rows share the same grid template so the columns always align -->
-                    <div
-                        class="grid grid-cols-[1fr_1rem_1fr_9rem] items-center gap-3 border-b border-default bg-elevated/40 px-3 py-2 text-xs font-medium uppercase text-muted"
-                    >
-                        <div>pod</div>
-                        <div></div>
-                        <div>WooCommerce</div>
-                        <div>Action</div>
+                <template v-else-if="!productRows.length">
+                    <UAlert
+                        color="neutral"
+                        variant="soft"
+                        icon="i-lucide-info"
+                        description="No products found in your catalog."
+                    />
+                    <div class="flex justify-end">
+                        <UButton
+                            type="button"
+                            color="neutral"
+                            variant="ghost"
+                            label="Close"
+                            @click="open = false"
+                        />
                     </div>
-                    <ul
-                        class="max-h-72 divide-y divide-default overflow-y-auto"
-                    >
-                        <li
-                            v-for="row in productRows"
-                            :key="row.pod_product_id"
-                            class="grid grid-cols-[1fr_1rem_1fr_9rem] items-center gap-3 px-3 py-2 text-sm"
+                </template>
+
+                <template v-else>
+                    <p class="text-sm text-muted">
+                        The table below summarizes the per-product changes that will
+                        be applied to your store.
+                    </p>
+
+                    <div class="rounded-md border border-default overflow-hidden">
+                        <!-- header and rows share the same grid template so the columns always align -->
+                        <div
+                            class="grid grid-cols-[1fr_1rem_1fr_9rem] items-center gap-3 border-b border-default bg-elevated/40 px-3 py-2 text-xs font-medium uppercase text-muted"
                         >
-                            <div class="min-w-0">
-                                <div class="truncate">
-                                    {{ row.pod_product_name }}
-                                    <span
-                                        v-if="row.pod_product_format"
-                                        class="ml-1 text-xs text-muted"
-                                        >{{ row.pod_product_format }}</span
-                                    >
-                                </div>
-                                <div
-                                    v-if="showProductIds"
-                                    class="text-xs text-muted"
-                                >
-                                    ID: {{ row.pod_product_id }}
-                                </div>
-                            </div>
-                            <UIcon
-                                name="i-lucide-arrow-right"
-                                class="size-4 text-muted"
-                            />
-                            <div class="min-w-0">
-                                <template v-if="row.wc_product_id !== null">
+                            <div>pod catalog</div>
+                            <div></div>
+                            <div>WooCommerce store</div>
+                            <div>Action</div>
+                        </div>
+                        <ul
+                            class="max-h-72 divide-y divide-default overflow-y-auto"
+                        >
+                            <li
+                                v-for="row in productRows"
+                                :key="row.pod_product_id"
+                                class="grid grid-cols-[1fr_1rem_1fr_9rem] items-center gap-3 px-3 py-2 text-sm"
+                            >
+                                <div class="min-w-0">
                                     <div class="truncate">
-                                        {{ row.wc_product_name }}
+                                        {{ row.pod_product_name }}
+                                        <span
+                                            v-if="row.pod_product_format"
+                                            class="ml-1 text-xs text-muted"
+                                            >{{ row.pod_product_format }}</span
+                                        >
                                     </div>
                                     <div
                                         v-if="showProductIds"
                                         class="text-xs text-muted"
                                     >
-                                        ID: {{ row.wc_product_id }}
+                                        ID: {{ row.pod_product_id }}
                                     </div>
-                                </template>
-                                <span v-else class="text-dimmed">—</span>
-                            </div>
-                            <div>
-                                <UBadge
-                                    :color="ACTION_BADGES[row.action].color"
-                                    variant="soft"
-                                >
-                                    {{ ACTION_BADGES[row.action].label }}
-                                </UBadge>
-                            </div>
-                        </li>
-                    </ul>
-                </div>
+                                </div>
+                                <UIcon
+                                    name="i-lucide-arrow-right"
+                                    class="size-4 text-muted"
+                                />
+                                <div class="min-w-0">
+                                    <template v-if="row.wc_product_id !== null">
+                                        <div class="truncate">
+                                            {{ row.wc_product_name }}
+                                        </div>
+                                        <div
+                                            v-if="showProductIds"
+                                            class="text-xs text-muted"
+                                        >
+                                            ID: {{ row.wc_product_id }}
+                                        </div>
+                                    </template>
+                                    <span v-else class="text-dimmed">—</span>
+                                </div>
+                                <div>
+                                    <UBadge
+                                        :color="ACTION_BADGES[row.action].color"
+                                        variant="soft"
+                                    >
+                                        {{ ACTION_BADGES[row.action].label }}
+                                    </UBadge>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
 
-                <div class="flex items-center justify-between gap-2">
-                    <UCheckbox
-                        v-model="useTaxedOffer"
-                        label="Use taxed catalog"
-                    />
-                    <div class="flex gap-2">
+                    <div class="flex justify-end gap-2">
                         <UButton
                             type="button"
                             color="neutral"
@@ -220,7 +238,7 @@ const { mutate: updateStore, isPending: isUpdating } = useMutation({
                             @click="updateStore()"
                         />
                     </div>
-                </div>
+                </template>
             </div>
         </template>
     </UModal>

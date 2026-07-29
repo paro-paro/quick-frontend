@@ -133,7 +133,7 @@ const { mutate: syncOrders, isPending: isSyncing } = useMutation({
     <UModal
         v-model:open="open"
         title="Sync orders"
-        description="Bring your WooCommerce orders into POD."
+        description="Sync your WooCommerce orders with POD."
         :ui="{ content: 'max-w-2xl' }"
     >
         <template #body>
@@ -202,10 +202,10 @@ const { mutate: syncOrders, isPending: isSyncing } = useMutation({
                             "
                             @click="
                                 row.action !== 'skip' &&
-                                    toggleOneOrder(
-                                        row.wc_order_id,
-                                        !selectedOrders.has(row.wc_order_id),
-                                    )
+                                toggleOneOrder(
+                                    row.wc_order_id,
+                                    !selectedOrders.has(row.wc_order_id),
+                                )
                             "
                         >
                             <!-- skipped orders are not selectable — the run ignores them either way -->
