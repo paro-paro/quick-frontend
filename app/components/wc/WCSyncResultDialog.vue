@@ -112,11 +112,11 @@ const gridColsClass = computed(() => {
           v-for="section in sections"
           :key="section.key"
         >
-          <div class="text-sm font-medium mb-2">
+          <div class="mb-2 text-sm font-medium">
             {{ section.label }} ({{ section.messages.length }})
           </div>
           <ul
-            class="max-h-60 overflow-auto rounded-md border border-default divide-y divide-default text-sm"
+            class="max-h-60 divide-y divide-default overflow-auto rounded-md border border-default text-sm"
           >
             <li
               v-for="(msg, i) in section.messages"
@@ -129,9 +129,9 @@ const gridColsClass = computed(() => {
         </div>
 
         <div v-if="errorMessages.length">
-          <div class="text-sm font-medium mb-2">Errors ({{ errorMessages.length }})</div>
+          <div class="mb-2 text-sm font-medium">Errors ({{ errorMessages.length }})</div>
           <ul
-            class="max-h-60 overflow-auto rounded-md border border-default divide-y divide-default text-sm"
+            class="max-h-60 divide-y divide-default overflow-auto rounded-md border border-default text-sm"
           >
             <li
               v-for="(err, i) in errorMessages"

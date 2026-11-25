@@ -163,10 +163,10 @@ const { mutate: syncOrders, isPending: isSyncing } = useMutation({
           <p>From this view you can review the action planned for each order before running it.</p>
         </div>
 
-        <div class="rounded-md border border-default overflow-hidden">
+        <div class="overflow-hidden rounded-md border border-default">
           <!-- header and rows share the same grid template so the columns always align -->
           <div
-            class="grid grid-cols-[1rem_5rem_5rem_6rem_1fr] items-center gap-3 border-b border-default bg-elevated/40 px-3 py-2 text-xs font-medium uppercase text-muted"
+            class="grid grid-cols-[1rem_5rem_5rem_6rem_1fr] items-center gap-3 border-b border-default bg-elevated/40 px-3 py-2 text-xs font-medium text-muted uppercase"
           >
             <UCheckbox
               :model-value="allOrdersSelected"

@@ -20,6 +20,10 @@ const { $api } = useNuxtApp()
 const queryClient = useQueryClient()
 const toast = useToast()
 
+// Kept out of the template: vue-tsc 3.3.14 mangles `//` inside template
+// attribute values, which breaks type-checking for the rest of the template.
+const STORE_URL_PLACEHOLDER = 'https://yourstore.com'
+
 const form = reactive({
   store_url: '',
   consumer_key: '',
@@ -89,7 +93,7 @@ function onSubmit() {
           <UInput
             v-model="form.store_url"
             name="store_url"
-            placeholder="https://yourstore.com"
+            :placeholder="STORE_URL_PLACEHOLDER"
             class="w-full"
           />
         </UFormField>

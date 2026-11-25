@@ -152,10 +152,10 @@ const { mutate: updateStore, isPending: isUpdating } = useMutation({
             The table below summarizes the per-product changes that will be applied to your store.
           </p>
 
-          <div class="rounded-md border border-default overflow-hidden">
+          <div class="overflow-hidden rounded-md border border-default">
             <!-- header and rows share the same grid template so the columns always align -->
             <div
-              class="grid grid-cols-[1fr_1rem_1fr_9rem] items-center gap-3 border-b border-default bg-elevated/40 px-3 py-2 text-xs font-medium uppercase text-muted"
+              class="grid grid-cols-[1fr_1rem_1fr_9rem] items-center gap-3 border-b border-default bg-elevated/40 px-3 py-2 text-xs font-medium text-muted uppercase"
             >
               <div>pod catalog</div>
               <div></div>

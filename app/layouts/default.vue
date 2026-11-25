@@ -48,9 +48,9 @@ const items: NavigationMenuItem[] = [
       <USeparator />
 
       <template #footer>
-        <div class="flex items-center gap-2 w-full min-w-0">
+        <div class="flex w-full min-w-0 items-center gap-2">
           <span
-            class="text-xs text-muted truncate"
+            class="truncate text-xs text-muted"
             :title="user?.email ?? undefined"
           >
             {{ user?.email }}

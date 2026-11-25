@@ -231,9 +231,9 @@ function onConfirm() {
           </p>
 
           <div class="rounded-md border border-default">
-            <div class="flex items-center gap-4 px-3 py-2 border-b border-default bg-elevated/50">
-              <div class="flex-1 text-xs font-medium uppercase text-muted">WooCommerce product</div>
-              <div class="w-64 text-xs font-medium uppercase text-muted">POD product</div>
+            <div class="flex items-center gap-4 border-b border-default bg-elevated/50 px-3 py-2">
+              <div class="flex-1 text-xs font-medium text-muted uppercase">WooCommerce product</div>
+              <div class="w-64 text-xs font-medium text-muted uppercase">POD product</div>
             </div>
 
             <ul class="max-h-96 divide-y divide-default overflow-y-auto">
