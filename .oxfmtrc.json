@@ -1,0 +1,48 @@
+{
+  "$schema": "https://unpkg.com/oxfmt/configuration_schema.json",
+  "jsdoc": true,
+  "printWidth": 100,
+  "tabWidth": 2,
+  "useTabs": false,
+  "semi": false,
+  "singleQuote": false,
+  "jsxSingleQuote": false,
+  "trailingComma": "all",
+  "arrowParens": "always",
+  "quoteProps": "consistent",
+  "bracketSpacing": true,
+  "bracketSameLine": false,
+  "objectWrap": "preserve",
+  "proseWrap": "preserve",
+  "singleAttributePerLine": true,
+  "htmlWhitespaceSensitivity": "css",
+  "vueIndentScriptAndStyle": false,
+  "embeddedLanguageFormatting": "auto",
+  "experimentalOperatorPosition": "end",
+  "insertFinalNewline": true,
+  "endOfLine": "lf",
+  "sortImports": {
+    "newlinesBetween": false,
+    "groups": [
+      ["type-builtin", "type-external"],
+      "type-internal",
+      ["type-parent", "type-sibling", "type-index"],
+      ["value-builtin", "value-external"],
+      "value-internal",
+      ["value-parent", "value-sibling", "value-index"],
+      "unknown"
+    ]
+  },
+  "sortPackageJson": {
+    "sortScripts": true
+  },
+  "sortTailwindcss": {
+    "stylesheet": "./app/assets/css/main.css"
+  },
+  "overrides": [
+    {
+      "files": ["**/*.{html,css,js,mjs,cjs,ts,mts,cts,jsx,tsx,vue}"],
+      "options": { "singleQuote": true }
+    }
+  ]
+}

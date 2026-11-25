@@ -1,0 +1,73 @@
+{
+  "tab_size": 2,
+  "format_on_save": "off",
+  "formatter": [],
+  "prettier": { "allowed": false },
+  "lsp": {
+    "vtsls": {
+      "settings": {
+        "vtsls": { "autoUseWorkspaceTsdk": true },
+        "typescript": { "tsdk": "node_modules/typescript/lib" }
+      }
+    },
+    "oxfmt": {
+      "binary": {
+        "path": "node_modules/oxfmt/bin/oxfmt",
+        "arguments": ["--lsp"]
+      },
+      "initialization_options": {
+        "settings": {
+          "run": "onSave",
+          "fmt.configPath": ".oxfmtrc.json"
+        }
+      }
+    }
+  },
+  "languages": {
+    "Vue.js": {
+      "language_servers": ["vue-language-server", "vtsls", "tailwindcss-language-server", "oxfmt"],
+      "format_on_save": "on",
+      "formatter": [{ "language_server": { "name": "oxfmt" } }]
+    },
+    "TypeScript": {
+      "language_servers": ["vtsls", "tailwindcss-language-server", "oxfmt"],
+      "format_on_save": "on",
+      "formatter": [{ "language_server": { "name": "oxfmt" } }]
+    },
+    "HTML": {
+      "language_servers": ["vscode-html-language-server", "emmet-language-server", "oxfmt"],
+      "format_on_save": "on",
+      "formatter": [{ "language_server": { "name": "oxfmt" } }]
+    },
+    "CSS": {
+      "language_servers": ["tailwindcss-language-server", "oxfmt"],
+      "format_on_save": "on",
+      "formatter": [{ "language_server": { "name": "oxfmt" } }]
+    },
+    "JSON": {
+      "language_servers": ["json-language-server", "package-version-server", "oxfmt"],
+      "format_on_save": "on",
+      "formatter": [{ "language_server": { "name": "oxfmt" } }]
+    },
+    "JSONC": {
+      "language_servers": ["json-language-server", "oxfmt"],
+      "format_on_save": "on",
+      "formatter": [{ "language_server": { "name": "oxfmt" } }]
+    },
+    "YAML": {
+      "language_servers": ["yaml-language-server", "oxfmt"],
+      "format_on_save": "on",
+      "formatter": [{ "language_server": { "name": "oxfmt" } }]
+    },
+    "Markdown": {
+      "language_servers": ["oxfmt"],
+      "format_on_save": "on",
+      "formatter": [{ "language_server": { "name": "oxfmt" } }],
+      "remove_trailing_whitespace_on_save": true
+    },
+    "XML": {
+      "formatter": [],
+      "format_on_save": "off"
+    }
+  }
+}

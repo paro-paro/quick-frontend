@@ -1,13 +1,15 @@
 {
   "name": "pod-frontend",
-  "type": "module",
   "private": true,
+  "type": "module",
   "scripts": {
-    "dev": "nuxt dev",
     "build": "nuxt build",
+    "dev": "nuxt dev",
+    "fmt": "oxfmt",
     "generate": "nuxt generate",
+    "postinstall": "nuxt prepare",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
+    "typecheck": "nuxt typecheck"
   },
   "dependencies": {
     "@nuxt/ui": "^4.4.0",
@@ -16,8 +18,23 @@
     "@vue/devtools-api": "^8.2.1",
     "firebase": "^12.16.0",
     "nuxt": "^4.3.1",
+    "oxfmt": "^0.80.0",
     "tailwindcss": "^4.1.18",
+    "typescript": "~6.0.3",
     "vue": "^3.5.27",
-    "vue-router": "^4.6.4"
+    "vue-router": "^4.6.4",
+    "vue-tsc": "^3.3.14"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "12.14.0",
+      "onFail": "download"
+    },
+    "runtime": {
+      "name": "node",
+      "version": "24.22.0",
+      "onFail": "download"
+    }
   }
 }
