@@ -8,6 +8,7 @@ import type {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, ref, useNuxtApp, useToast, useUiSettings } from '#imports'
 import { getApiErrorMessage } from '~/utils/api-errors'
+import { MUTATION_KEYS, QUERY_KEYS } from '~/utils/query-keys'
 
 const open = defineModel<boolean>('open', { required: true })
 
@@ -34,7 +35,7 @@ const {
   isPending: isPreviewLoading,
   isError,
 } = useQuery({
-  queryKey: ['woocommerce-update-store-preview', useTaxedOffer],
+  queryKey: [...QUERY_KEYS.UPDATE_STORE_PREVIEW, useTaxedOffer],
   queryFn: async () => {
     const [res] = await Promise.all([
       $api<ApiResponse<WooCommerceUpdateStorePreview>>('/woocommerce/update/store/preview', {
@@ -65,6 +66,7 @@ const ACTION_BADGES: Record<
 }
 
 const { mutate: updateStore, isPending: isUpdating } = useMutation({
+  mutationKey: MUTATION_KEYS.UPDATE_STORE,
   mutationFn: async () => {
     const res = await $api<ApiResponse<WooCommerceUpdateStoreResult>>('/woocommerce/update/store', {
       method: 'PUT',
@@ -75,10 +77,10 @@ const { mutate: updateStore, isPending: isUpdating } = useMutation({
   },
   onSuccess: (data) => {
     queryClient.invalidateQueries({
-      queryKey: ['woocommerce-update-store-preview'],
+      queryKey: QUERY_KEYS.UPDATE_STORE_PREVIEW,
     })
     queryClient.invalidateQueries({
-      queryKey: ['woocommerce-products-import-preview'],
+      queryKey: QUERY_KEYS.IMPORTS_PREVIEW,
     })
     open.value = false
     emit('updated', data, useTaxedOffer.value)

@@ -94,19 +94,9 @@ export interface PODProductPreview {
   format: string
 }
 
-export interface WCProductMappingPreview {
-  wc_product_id: number
-  /** Resolved from the unfiltered WC list; falls back to the WC id. */
-  wc_product_name: string
-  /** False when the WC product is disabled or deleted on the store. */
-  wc_product_active: boolean
-  pod_product_id: number
-}
-
 export interface WooCommerceImportProductsPreview {
   wc_products: WCImportableProduct[]
   pod_products: PODProductPreview[]
-  mappings: WCProductMappingPreview[]
 }
 
 // --- Push updates flow ---

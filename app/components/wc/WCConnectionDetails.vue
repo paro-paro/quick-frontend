@@ -9,6 +9,7 @@ import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { useNuxtApp, useToast } from '#imports'
 import { WC_CONNECTION_URL } from '~/types/woocommerce'
 import { getApiErrorMessage } from '~/utils/api-errors'
+import { MUTATION_KEYS, QUERY_KEYS } from '~/utils/query-keys'
 
 defineProps<{
   connexion: WooCommerceConnection
@@ -24,6 +25,7 @@ const queryClient = useQueryClient()
 const toast = useToast()
 
 const { mutate: toggleActive, isPending: isToggling } = useMutation({
+  mutationKey: MUTATION_KEYS.CONNECTION_TOGGLE_ACTIVE,
   mutationFn: async (payload: UpdatePayload) => {
     const res = await $api<ApiResponse<WooCommerceConnectionMutated>>(WC_CONNECTION_URL, {
       method: 'PUT',
@@ -33,7 +35,7 @@ const { mutate: toggleActive, isPending: isToggling } = useMutation({
     return res.data
   },
   onSuccess: (_, payload) => {
-    queryClient.invalidateQueries({ queryKey: ['woocommerce-connexion'] })
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.CONNECTION })
     toast.add({
       title: payload.is_active ? 'Connection active.' : 'Connection inactive.',
       color: 'success',

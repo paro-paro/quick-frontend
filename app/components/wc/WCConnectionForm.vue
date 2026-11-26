@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { reactive, useNuxtApp, useToast } from '#imports'
 import { WC_CONNECTION_URL } from '~/types/woocommerce'
 import { getApiErrorMessage } from '~/utils/api-errors'
+import { MUTATION_KEYS, QUERY_KEYS } from '~/utils/query-keys'
 
 const { $api } = useNuxtApp()
 const queryClient = useQueryClient()
@@ -21,6 +22,7 @@ const form = reactive<CreatePayload>({
 })
 
 const { mutate: createConnection, isPending: isCreating } = useMutation({
+  mutationKey: MUTATION_KEYS.CONNECTION_CREATE,
   onMutate: async () => {
     await new Promise((resolve) => setTimeout(resolve, 400))
   },
@@ -35,7 +37,7 @@ const { mutate: createConnection, isPending: isCreating } = useMutation({
   // await the refetch so the submit button keeps spinning until the connected view swaps in
   onSuccess: async () => {
     await queryClient.invalidateQueries({
-      queryKey: ['woocommerce-connexion'],
+      queryKey: QUERY_KEYS.CONNECTION,
     })
     toast.add({
       title: 'Connection created.',

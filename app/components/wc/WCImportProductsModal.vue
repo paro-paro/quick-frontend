@@ -9,6 +9,7 @@ import type {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, ref, useNuxtApp, useToast, useUiSettings, watch } from '#imports'
 import { getApiErrorMessage } from '~/utils/api-errors'
+import { MUTATION_KEYS, QUERY_KEYS } from '~/utils/query-keys'
 
 const open = defineModel<boolean>('open', { required: true })
 
@@ -16,9 +17,9 @@ const emit = defineEmits<{
   (e: 'applied', result: WooCommerceImportProductsApplyResult): void
 }>()
 
+const toast = useToast()
 const { $api } = useNuxtApp()
 const queryClient = useQueryClient()
-const toast = useToast()
 const { showProductIds } = useUiSettings()
 
 const IMPORT_HINT =
@@ -28,13 +29,10 @@ const IMPORT_HINT =
 // undefined = "create new"; USelectMenu's v-model doesn't accept null.
 const selectedMappings = ref<Record<number, number | undefined>>({})
 
-const {
-  data: syncPreview,
-  isPending: isPreviewLoading,
-  isError: isPreviewError,
-  error: previewError,
-} = useQuery({
-  queryKey: ['woocommerce-products-import-preview'],
+const { data, isPending, isError, error } = useQuery({
+  retry: false,
+  enabled: computed(() => open.value),
+  queryKey: QUERY_KEYS.IMPORTS_PREVIEW,
   queryFn: async () => {
     // Race the fetch against a min-delay so the spinner doesn't flash on
     // fast networks — isPending stays true for at least 320ms.
@@ -44,23 +42,12 @@ const {
     ])
     return res.data
   },
-  enabled: computed(() => open.value),
-  retry: false,
 })
 
-// Import flow only handles NEW products — mapped ones are the refresh flow's job.
-const importableWcProducts = computed(() => {
-  const mapped = new Set((syncPreview.value?.mappings ?? []).map((m) => m.wc_product_id))
-  return (syncPreview.value?.wc_products ?? []).filter((p) => !mapped.has(p.wc_product_id))
-})
-
-// POD ids already claimed by existing DB mappings — can't be picked as map targets.
-const alreadyMappedPodIds = computed<Set<number>>(
-  () => new Set((syncPreview.value?.mappings ?? []).map((m) => m.pod_product_id)),
-)
+const importableWcProducts = computed(() => data.value?.wc_products ?? [])
 
 // Reset the per-row POD picks when a fresh preview lands.
-watch(syncPreview, (data) => {
+watch(data, (data) => {
   if (!data) return
   selectedMappings.value = {}
 })
@@ -73,7 +60,7 @@ function clearMapping(wcId: number) {
 // the dropdown trigger (mirrors the list's #item-label styling).
 const podInfoById = computed<Map<number, { name: string; format: string }>>(() => {
   const m = new Map<number, { name: string; format: string }>()
-  for (const p of syncPreview.value?.pod_products ?? []) {
+  for (const p of data.value?.pod_products ?? []) {
     m.set(p.pod_product_id, { name: p.name, format: p.format })
   }
   return m
@@ -91,31 +78,29 @@ const claimedPodIdsBySession = computed<Set<number>>(() => {
 
 function podOptionsForRow(wcId: number) {
   const ownPick = selectedMappings.value[wcId]
-  return (syncPreview.value?.pod_products ?? [])
-    .filter((p) => {
-      // Exclude PODs already mapped in the DB.
-      if (alreadyMappedPodIds.value.has(p.pod_product_id)) return false
+  return (
+    (data.value?.pod_products ?? [])
       // Exclude PODs picked by another row this session (keep own pick).
-      if (p.pod_product_id !== ownPick && claimedPodIdsBySession.value.has(p.pod_product_id)) {
-        return false
-      }
-      return true
-    })
-    .map((p) => ({
-      // Combined text stays in `label` so it shows in the trigger and
-      // powers search. The dropdown list uses the #item-label slot below
-      // to render name normally + format muted inline (no parentheses).
-      label: p.format ? `${p.name} ${p.format}` : p.name,
-      name: p.name,
-      format: p.format,
-      value: p.pod_product_id,
-    }))
+      .filter(
+        (p) => p.pod_product_id === ownPick || !claimedPodIdsBySession.value.has(p.pod_product_id),
+      )
+      .map((p) => ({
+        // Combined text stays in `label` so it shows in the trigger and
+        // powers search. The dropdown list uses the #item-label slot below
+        // to render name normally + format muted inline (no parentheses).
+        label: p.format ? `${p.name} ${p.format}` : p.name,
+        name: p.name,
+        format: p.format,
+        value: p.pod_product_id,
+      }))
+  )
 }
 
 const { mutate: applySyncProducts, isPending: isApplying } = useMutation({
+  mutationKey: MUTATION_KEYS.IMPORT_PRODUCTS,
   mutationFn: async (payload: WooCommerceImportProductsApply) => {
     const res = await $api<ApiResponse<WooCommerceImportProductsApplyResult>>(
-      '/woocommerce/products/import/apply',
+      '/woocommerce/products/import',
       {
         method: 'POST',
         body: payload,
@@ -126,7 +111,7 @@ const { mutate: applySyncProducts, isPending: isApplying } = useMutation({
   },
   onSuccess: (data) => {
     queryClient.invalidateQueries({
-      queryKey: ['woocommerce-products-import-preview'],
+      queryKey: QUERY_KEYS.IMPORTS_PREVIEW,
     })
     open.value = false
     emit('applied', data)
@@ -174,7 +159,7 @@ function onConfirm() {
   >
     <template #body>
       <div
-        v-if="isPreviewLoading"
+        v-if="isPending"
         class="flex items-center gap-2 text-muted"
       >
         <UIcon
@@ -185,25 +170,19 @@ function onConfirm() {
       </div>
 
       <div
-        v-else-if="isPreviewError"
+        v-else-if="isError"
         class="flex flex-col gap-4"
       >
         <UAlert
           color="error"
           variant="soft"
           icon="i-lucide-alert-triangle"
-          :description="previewError?.message || 'Failed to load preview.'"
+          :description="error?.message || 'Failed to load preview.'"
         />
       </div>
 
-      <!-- <UAlert
-                v-else-if="isPreviewError"
-                color="error"
-                :title="previewError?.message || 'Failed to load preview.'"
-            /> -->
-
       <div
-        v-else-if="syncPreview"
+        v-else-if="data"
         class="flex flex-col gap-4"
       >
         <!-- Empty state: no importable products, only a Close button. -->
@@ -212,7 +191,7 @@ function onConfirm() {
             color="neutral"
             variant="soft"
             icon="i-lucide-info"
-            description="No new active products found on your WooCommerce store."
+            description="All your WooCommerce products have been imported."
           />
           <div class="flex justify-end">
             <UButton

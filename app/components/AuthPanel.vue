@@ -3,6 +3,7 @@ import { useMutation } from '@tanstack/vue-query'
 import { FirebaseError } from 'firebase/app'
 import { signInWithEmailAndPassword } from 'firebase/auth'
 import { reactive, useNuxtApp, useToast } from '#imports'
+import { MUTATION_KEYS } from '~/utils/query-keys'
 
 const { $firebaseAuth } = useNuxtApp()
 const toast = useToast()
@@ -29,6 +30,7 @@ const form = reactive<LoginPayload>({
 })
 
 const { mutate, isPending } = useMutation({
+  mutationKey: MUTATION_KEYS.AUTH_LOGIN,
   mutationFn: async (payload: LoginPayload) => {
     await signInWithEmailAndPassword($firebaseAuth, payload.email, payload.password)
   },

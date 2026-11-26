@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/vue-query'
 import { VueQueryDevtools } from '@tanstack/vue-query-devtools'
 import { computed, ref, useAuthUser, useNuxtApp, useToast } from '#imports'
 import { WC_CONNECTION_URL } from '~/types/woocommerce'
+import { QUERY_KEYS } from '~/utils/query-keys'
 import { summarizeSyncResult } from '~/utils/sync-results'
 
 const toast = useToast()
@@ -23,7 +24,7 @@ const {
 } = useQuery({
   retry: false,
   staleTime: Infinity,
-  queryKey: ['woocommerce-connexion'],
+  queryKey: QUERY_KEYS.CONNECTION,
   queryFn: async () => {
     const res = await $api<ApiResponse<WooCommerceConnection>>(WC_CONNECTION_URL)
     return res.data

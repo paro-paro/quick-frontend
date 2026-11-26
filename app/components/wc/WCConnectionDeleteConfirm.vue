@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { useNuxtApp, useToast } from '#imports'
 import { WC_CONNECTION_URL } from '~/types/woocommerce'
 import { getApiErrorMessage } from '~/utils/api-errors'
+import { MUTATION_KEYS, QUERY_KEYS } from '~/utils/query-keys'
 
 const open = defineModel<boolean>('open', { required: true })
 
@@ -11,11 +12,12 @@ const queryClient = useQueryClient()
 const toast = useToast()
 
 const { mutate: deleteConnection, isPending: isDeleting } = useMutation({
+  mutationKey: MUTATION_KEYS.CONNECTION_DELETE,
   mutationFn: async () => {
     await $api(WC_CONNECTION_URL, { method: 'DELETE' })
   },
   onSuccess: () => {
-    queryClient.invalidateQueries({ queryKey: ['woocommerce-connexion'] })
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.CONNECTION })
     open.value = false
     toast.add({
       title: 'Connection deleted.',

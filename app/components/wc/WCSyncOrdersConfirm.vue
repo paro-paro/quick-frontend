@@ -8,6 +8,7 @@ import type {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, ref, useNuxtApp, useToast, watch } from '#imports'
 import { getApiErrorMessage } from '~/utils/api-errors'
+import { MUTATION_KEYS, QUERY_KEYS } from '~/utils/query-keys'
 
 const open = defineModel<boolean>('open', { required: true })
 
@@ -20,7 +21,7 @@ const queryClient = useQueryClient()
 const toast = useToast()
 
 const { data: preview, isPending: isPreviewLoading } = useQuery({
-  queryKey: ['woocommerce-orders-sync-preview'],
+  queryKey: QUERY_KEYS.ORDERS_SYNC_PREVIEW,
   queryFn: async () => {
     const [res] = await Promise.all([
       $api<ApiResponse<WooCommerceSyncOrdersPreview>>('/woocommerce/orders/sync/preview'),
@@ -90,6 +91,7 @@ const ACTION_BADGES: Record<
 }
 
 const { mutate: syncOrders, isPending: isSyncing } = useMutation({
+  mutationKey: MUTATION_KEYS.SYNC_ORDERS,
   mutationFn: async () => {
     const res = await $api<ApiResponse<WooCommerceSyncOrdersResult>>('/woocommerce/orders/sync', {
       method: 'POST',
@@ -100,7 +102,7 @@ const { mutate: syncOrders, isPending: isSyncing } = useMutation({
   },
   onSuccess: (data) => {
     queryClient.invalidateQueries({
-      queryKey: ['woocommerce-orders-sync-preview'],
+      queryKey: QUERY_KEYS.ORDERS_SYNC_PREVIEW,
     })
     open.value = false
     emit('synced', data)
