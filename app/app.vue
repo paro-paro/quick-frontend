@@ -180,16 +180,7 @@ function openSyncResult(title: string, toastTitle: string, result: WooCommerceSy
 
         <WCUpdateStoreModal
           v-model:open="isUpdateStoreOpen"
-          @updated="
-            (result, useTaxedOffer) =>
-              openSyncResult(
-                'Update store result',
-                useTaxedOffer
-                  ? 'Store updated with taxed catalog.'
-                  : 'Store updated with untaxed catalog.',
-                result,
-              )
-          "
+          @updated="(result) => openSyncResult('Update store result', 'Store updated.', result)"
         />
 
         <WCImportProductsModal

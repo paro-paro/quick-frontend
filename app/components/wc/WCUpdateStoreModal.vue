@@ -6,14 +6,14 @@ import type {
   WooCommerceUpdateStoreResult,
 } from '~/types/woocommerce'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
-import { computed, ref, useNuxtApp, useToast, useUiSettings } from '#imports'
+import { computed, useNuxtApp, useToast, useUiSettings } from '#imports'
 import { getApiErrorMessage } from '~/utils/api-errors'
 import { MUTATION_KEYS, QUERY_KEYS } from '~/utils/query-keys'
 
 const open = defineModel<boolean>('open', { required: true })
 
 const emit = defineEmits<{
-  (e: 'updated', result: WooCommerceUpdateStoreResult, useTaxedOffer: boolean): void
+  (e: 'updated', result: WooCommerceUpdateStoreResult): void
 }>()
 
 const { $api } = useNuxtApp()
@@ -21,26 +21,15 @@ const queryClient = useQueryClient()
 const toast = useToast()
 const { showProductIds } = useUiSettings()
 
-// The active tab selects which WC offer of the tax pair drives the run (and its preview).
-const activeTab = ref('untaxed')
-const useTaxedOffer = computed(() => activeTab.value === 'taxed')
-
-const tabItems = [
-  { value: 'untaxed', label: 'Untaxed catalog' },
-  { value: 'taxed', label: 'Taxed catalog' },
-]
-
 const {
   data: preview,
   isPending: isPreviewLoading,
   isError,
 } = useQuery({
-  queryKey: [...QUERY_KEYS.UPDATE_STORE_PREVIEW, useTaxedOffer],
+  queryKey: QUERY_KEYS.UPDATE_STORE_PREVIEW,
   queryFn: async () => {
     const [res] = await Promise.all([
-      $api<ApiResponse<WooCommerceUpdateStorePreview>>('/woocommerce/update/store/preview', {
-        query: { use_taxed_offer: useTaxedOffer.value },
-      }),
+      $api<ApiResponse<WooCommerceUpdateStorePreview>>('/woocommerce/update/store/preview'),
       new Promise((resolve) => setTimeout(resolve, 320)),
     ])
     return res.data
@@ -50,19 +39,19 @@ const {
 })
 
 // The POD WooCommerce offer dictates what the user sells on the store — rows come
-// pre-bucketed from the preview: create (new on WC), update (overwrite WC values),
-// deactivate (product left the offer, drafted on WC).
+// pre-bucketed from the preview: publish (new on WC), update (overwrite WC values),
+// republish (unpublished on WC: publish + overwrite), draft (product left the offer, drafted on WC).
 // No selection: the run always covers every row, keeping POD and WC in 1:1 parity.
 const productRows = computed(() => preview.value?.products ?? [])
 
 const ACTION_BADGES: Record<
   WCUpdateStoreAction,
-  { label: string; color: 'success' | 'info' | 'neutral' }
+  { label: string; color: 'success' | 'info' | 'neutral'; class?: string }
 > = {
-  create: { label: 'Create', color: 'success' },
+  publish: { label: 'Publish', color: 'success' },
   update: { label: 'Update', color: 'info' },
-  activate: { label: 'Activate + Update', color: 'success' },
-  deactivate: { label: 'Deactivate', color: 'neutral' },
+  republish: { label: 'Republish + Update', color: 'info' },
+  draft: { label: 'Draft', color: 'neutral', class: 'bg-orange-500/10 text-orange-500' },
 }
 
 const { mutate: updateStore, isPending: isUpdating } = useMutation({
@@ -70,8 +59,6 @@ const { mutate: updateStore, isPending: isUpdating } = useMutation({
   mutationFn: async () => {
     const res = await $api<ApiResponse<WooCommerceUpdateStoreResult>>('/woocommerce/update/store', {
       method: 'PUT',
-      body: { use_taxed_offer: useTaxedOffer.value },
-      headers: { 'Content-Type': 'application/json' },
     })
     return res.data
   },
@@ -83,7 +70,7 @@ const { mutate: updateStore, isPending: isUpdating } = useMutation({
       queryKey: QUERY_KEYS.IMPORTS_PREVIEW,
     })
     open.value = false
-    emit('updated', data, useTaxedOffer.value)
+    emit('updated', data)
   },
   onError: (error) => {
     toast.add({
@@ -99,19 +86,11 @@ const { mutate: updateStore, isPending: isUpdating } = useMutation({
   <UModal
     v-model:open="open"
     title="Update store"
-    description="Update your WooCommerce store from your POD catalog."
+    description="Update your WooCommerce store from your WooCommerce catalog."
     :ui="{ content: 'max-w-2xl' }"
   >
     <template #body>
       <div class="flex flex-col gap-6">
-        <UTabs
-          v-model="activeTab"
-          :items="tabItems"
-          variant="link"
-          :content="false"
-          class="-mt-2"
-        />
-
         <div
           v-if="isPreviewLoading"
           class="flex items-center gap-2 text-sm text-muted"
@@ -128,7 +107,7 @@ const { mutate: updateStore, isPending: isUpdating } = useMutation({
           color="error"
           variant="soft"
           icon="i-lucide-alert-triangle"
-          description="Failed to load products from your catalog."
+          description="Failed to load products from your WooCommerce catalog."
         />
 
         <template v-else-if="!productRows.length">
@@ -136,7 +115,7 @@ const { mutate: updateStore, isPending: isUpdating } = useMutation({
             color="neutral"
             variant="soft"
             icon="i-lucide-info"
-            description="No products found in your catalog."
+            description="No products found in your WooCommerce catalog."
           />
           <div class="flex justify-end">
             <UButton
@@ -159,7 +138,7 @@ const { mutate: updateStore, isPending: isUpdating } = useMutation({
             <div
               class="grid grid-cols-[1fr_1rem_1fr_9rem] items-center gap-3 border-b border-default bg-elevated/40 px-3 py-2 text-xs font-medium text-muted uppercase"
             >
-              <div>pod catalog</div>
+              <div>WooCommerce catalog</div>
               <div></div>
               <div>WooCommerce store</div>
               <div>Action</div>
@@ -211,6 +190,7 @@ const { mutate: updateStore, isPending: isUpdating } = useMutation({
                 <div>
                   <UBadge
                     :color="ACTION_BADGES[row.action].color"
+                    :class="ACTION_BADGES[row.action].class"
                     variant="soft"
                   >
                     {{ ACTION_BADGES[row.action].label }}

@@ -11,7 +11,7 @@ const props = defineProps<{
 
 // Result shapes (all fields are string[] of per-row messages; counts = lengths):
 // - Import apply result: created / mapped / skipped / errors.
-// - Update store result: created / updated / deactivated / skipped / errors.
+// - Update store result: published / updated / republished / drafted / errors.
 // - Sync orders result: created / updated / deleted / skipped / errors.
 //
 // Each tile shows a count; below the tiles, any non-empty field renders its
@@ -36,9 +36,11 @@ const tiles = computed(() => {
   const list: { label: string; value: number }[] = []
   for (const [key, label] of [
     ['created', 'Created'],
+    ['published', 'Published'],
     ['mapped', 'Mapped'],
     ['updated', 'Updated'],
-    ['deactivated', 'Deactivated'],
+    ['republished', 'Republished'],
+    ['drafted', 'Drafted'],
     ['skipped', 'Skipped'],
     ['deleted', 'Deleted'],
   ] as const) {
@@ -54,9 +56,11 @@ const sections = computed(() => {
 
   const defs: { key: string; label: string }[] = [
     { key: 'created', label: 'Created' },
+    { key: 'published', label: 'Published' },
     { key: 'mapped', label: 'Mapped' },
     { key: 'updated', label: 'Updated' },
-    { key: 'deactivated', label: 'Deactivated' },
+    { key: 'republished', label: 'Republished' },
+    { key: 'drafted', label: 'Drafted' },
     { key: 'skipped', label: 'Skipped' },
     { key: 'deleted', label: 'Deleted' },
   ]

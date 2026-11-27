@@ -62,16 +62,16 @@ export interface WooCommerceSyncOrdersResult {
 }
 
 /**
- * Response from PUT /woocommerce/products/push (full reconcile: create/update/deactivate).
+ * Response from PUT /woocommerce/update/store (full reconcile: publish/update/republish/draft).
  *
  * Every field is a list of per-row messages — one entry per product processed, describing what
  * happened. Counts are derived from the list lengths.
  */
 export interface WooCommerceUpdateStoreResult {
-  created: string[]
+  published: string[]
   updated: string[]
-  deactivated: string[]
-  skipped: string[]
+  republished: string[]
+  drafted: string[]
   errors: string[]
 }
 
@@ -101,7 +101,7 @@ export interface WooCommerceImportProductsPreview {
 
 // --- Push updates flow ---
 
-export type WCUpdateStoreAction = 'create' | 'update' | 'activate' | 'deactivate'
+export type WCUpdateStoreAction = 'publish' | 'update' | 'republish' | 'draft'
 
 export interface WCUpdateStoreProductPreview {
   pod_product_id: number
